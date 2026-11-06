@@ -67,7 +67,7 @@ python -m pytest -q
 python -m uvicorn ledgerline.main:app --reload
 ```
 
-Open `http://127.0.0.1:8000/health` for the health check and `http://127.0.0.1:8000/docs` for the generated API docs. PostgreSQL-backed routes will require the database setup that is scheduled for Day 2.
+Open `http://127.0.0.1:8000/` for the dashboard preview, `http://127.0.0.1:8000/health` for the health check, and `http://127.0.0.1:8000/docs` for the generated API docs. The account and activity figures are sample-only; preview forms do not post money. PostgreSQL-backed routes will require the database setup that is scheduled for Day 2.
 
 ## Daily GitHub workflow
 

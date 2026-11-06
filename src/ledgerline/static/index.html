@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#10141c" />
+    <title>LedgerLine | Money Integrity System</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Main navigation">
+        <a class="brand" href="#dashboard" aria-label="LedgerLine home">
+          <span class="brand-mark" aria-hidden="true"><i></i><b></b></span>
+          <span><strong>LedgerLine</strong><small>Money Integrity System</small></span>
+        </a>
+
+        <div class="nav-label">Workspace</div>
+        <nav class="primary-nav">
+          <button class="nav-item active" data-view="accounts"><span class="nav-icon">▦</span>Accounts</button>
+          <button class="nav-item" data-view="transfer"><span class="nav-icon">⇄</span>Transfer</button>
+          <button class="nav-item" data-view="statements"><span class="nav-icon">▤</span>Statements</button>
+          <button class="nav-item" data-view="audit"><span class="nav-icon">◷</span>Audit log</button>
+          <button class="nav-item" data-view="users"><span class="nav-icon">♙</span>Users &amp; roles</button>
+        </nav>
+
+        <div class="sidebar-bottom">
+          <div class="preview-note"><span class="preview-dot"></span><span><b>Preview workspace</b><small>Sample data only</small></span></div>
+          <button class="profile-button" id="profile-button">
+            <span class="avatar">AM</span><span class="profile-copy"><b>Alex Morgan</b><small>Administrator</small></span><span class="profile-more">···</span>
+          </button>
+        </div>
+      </aside>
+
+      <main class="main-area">
+        <header class="topbar">
+          <label class="search-box"><span aria-hidden="true">⌕</span><input id="global-search" type="search" placeholder="Search accounts or activity" aria-label="Search accounts or activity" /><kbd>⌘ K</kbd></label>
+          <div class="topbar-right">
+            <span class="environment-tag"><i></i> Sandbox</span>
+            <div class="role-switch" aria-label="Preview role selector">
+              <button class="role-chip selected" data-role="Administrator"><span>⬡</span>Admin</button>
+              <button class="role-chip" data-role="Account Holder"><span>♙</span>Holder</button>
+              <button class="role-chip" data-role="Auditor"><span>◷</span>Auditor</button>
+            </div>
+            <button class="icon-button" title="Notifications" aria-label="Notifications"><span class="bell">♧</span><i class="notification-dot"></i></button>
+            <span class="avatar top-avatar" aria-label="Alex Morgan">AM</span>
+          </div>
+        </header>
+
+        <section class="page-content">
+          <div class="page-heading">
+            <div><div class="eyebrow">FRIDAY, NOVEMBER 6, 2026 <span class="eyebrow-line"></span> LEDGER STATUS</div><h1 id="page-title">Accounts</h1><p id="page-subtitle">Overview of accounts and system integrity</p></div>
+            <button class="button button-primary" id="add-account"><span>＋</span> Add account</button>
+          </div>
+
+          <div class="integrity-banner">
+            <div class="integrity-icon">✓</div>
+            <div class="system-total"><span class="metric-label">Total system balance <span class="help-dot" title="Sum of sample account balances">i</span></span><strong id="system-total">₹1,00,000 <small>INR</small></strong></div>
+            <div class="integrity-status"><span class="balanced-pill"><i>✓</i> Sample books balanced</span><span class="status-detail">Demo figures reconcile; live ledger is not connected.</span></div>
+            <div class="last-check"><span>INTEGRITY CHECK</span><b><i></i> Preview only</b><small>Not a live reconciliation</small></div>
+          </div>
+
+          <div class="section-heading">
+            <div><h2 id="section-title">Accounts <span class="count-badge" id="account-count">3</span></h2><p id="section-description">All balances shown are sample data</p></div>
+            <div class="section-actions"><button class="button button-quiet" id="filter-button">☷ <span>Filter</span></button><button class="button button-quiet" id="export-button">↓ <span>Export</span></button></div>
+          </div>
+
+          <div class="account-grid" id="account-grid" aria-live="polite"></div>
+
+          <section class="activity-section">
+            <div class="section-heading activity-heading"><div><h2>Recent activity</h2><p>Latest sample ledger events</p></div><button class="text-button" data-view="statements">View statements <span>→</span></button></div>
+            <div class="table-wrap"><table><thead><tr><th>ACTIVITY</th><th>ACCOUNT</th><th>INITIATED BY</th><th>DATE</th><th>AMOUNT</th><th>STATUS</th></tr></thead><tbody id="activity-rows"></tbody></table></div>
+            <div class="empty-state hidden" id="empty-state"><span>⌕</span><b>No matching activity</b><small>Try another search term or clear your filter.</small></div>
+          </section>
+
+          <footer class="invariant-footer"><span class="info-mark">i</span><span>Sample invariant: <b>₹45,000 + ₹30,000 + ₹25,000 = ₹1,00,000</b></span><span class="footer-separator"></span><span class="footer-preview"><i></i> Preview figures only</span><a href="#audit" data-view="audit">View audit log <span>↗</span></a></footer>
+        </section>
+      </main>
+    </div>
+
+    <dialog class="app-dialog" id="action-dialog">
+      <form method="dialog" class="dialog-dismiss"><button aria-label="Close dialog">×</button></form>
+      <div id="dialog-content"></div>
+    </dialog>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="/app.js" defer></script>
+  </body>
+</html>
