@@ -10,6 +10,14 @@ Entries are written as the work happens. Each must say what was requested, what 
 - **Correction and check:** Created the starter directly in the actual workspace, ignored `.venv`, and ran `python -m pytest -q` (1 passed). Integrity work remains open and is tracked in `THREATS.md`; no money-safety claim is made from this check.
 - **Commit containing the correction:** `00af2659fc0f04640b9163fef01df95b045b114f` (local commit; add the GitHub permalink after the remote is configured).
 
+## 2026-11-06: Dashboard and schema foundation
+
+- **Asked:** Build the project to match the supplied LedgerLine dashboard reference and continue implementing the project rather than leaving only instructions.
+- **Produced:** A dark responsive dashboard with sample accounts, activity, role preview, navigation, and non-posting account/transfer forms; SQLAlchemy schema foundations for users, accounts, journal transactions, entries, idempotency records, and audit events; and HTTP/schema tests.
+- **Wrong or risky:** The first Users & roles view handler rendered role cards and then immediately overwrote them with account cards. The interface could also be mistaken for a live ledger if the sample-only status was not prominent. The schema alone does not provide authorization, transaction-level money movement, append-only enforcement, or concurrency safety.
+- **Correction and check:** Fixed view rendering; labeled the figures and forms as preview-only; verified the dashboard at desktop and mobile widths; ran `pytest -q` (4 passed), Ruff, and `node --check`. Docker Compose is installed but Docker Desktop's engine is unavailable, so no PostgreSQL migration or race behavior has been validated. Those integrity controls remain open in `THREATS.md`.
+- **Commit containing the correction:** `5a0d2e3e6ca6ab596f6589360ebc8641683753e7` (implementation commit; repository permalink will be recorded after push).
+
 ## Entry template for future work
 
 Add a dated section after the relevant work is completed. Do not copy a planned prompt and describe it as completed.
