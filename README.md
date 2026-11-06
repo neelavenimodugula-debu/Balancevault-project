@@ -71,15 +71,7 @@ Open `http://127.0.0.1:8000/` for the dashboard preview, `http://127.0.0.1:8000/
 
 ## Daily GitHub workflow
 
-This workspace currently has a local Git repository but no remote. Create an empty public GitHub repository, then connect it once:
-
-```powershell
-git branch -M main
-git remote add origin https://github.com/YOUR-USERNAME/LedgerLine.git
-git push -u origin main
-```
-
-At the end of each workday, review the staged files, commit that day's tested work, and push:
+The private GitHub repository is [neelavenimodugula-debu/LedgerLine-project](https://github.com/neelavenimodugula-debu/LedgerLine-project). The local `main` branch tracks the `origin` remote. At the end of each day, review, commit, and push the tested changes:
 
 ```powershell
 git status
@@ -89,7 +81,7 @@ git commit -m "Day N: describe the tested change"
 git push
 ```
 
-Replace `N` and the message with the actual day's work. Never stage `.env`, credentials, deployment secrets, or `.venv`. Keep `PROMPTS.md` entries tied to real prompts, observed output, a specific correction/check, and the commit that contains the correction. Once the GitHub remote exists, use a full GitHub commit URL in each entry.
+Replace `N` and the message with the actual day's work. Never stage `.env`, credentials, deployment secrets, or `.venv`. Keep `PROMPTS.md` entries tied to real prompts, observed output, a specific correction/check, and the commit that contains the correction. Use the full GitHub commit URL in each entry.
 
 ## Integrity design (planned, not yet implemented)
 
