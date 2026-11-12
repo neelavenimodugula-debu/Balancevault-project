@@ -83,6 +83,7 @@ EMAIL_REGEX = r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"
 class RegisterRequest(BaseModel):
     email: str = Field(pattern=EMAIL_REGEX)
     password: str = Field(min_length=8)
+    full_name: str | None = None
 
 
 class LoginRequest(BaseModel):
@@ -251,6 +252,25 @@ def get_current_user_profile(current_user: User = Depends(get_current_user)) -> 
         "role": current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role),
         "is_active": current_user.is_active,
     }
+
+
+@app.get("/users", tags=["users"])
+def list_workspace_users(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_roles(UserRole.ADMIN)),
+    _rate=Depends(rate_limiter()),
+) -> list[dict]:
+    users = session.query(User).order_by(User.created_at.desc()).all()
+    return [
+        {
+            "id": str(u.id),
+            "email": u.email,
+            "role": u.role.value if hasattr(u.role, "value") else str(u.role),
+            "is_active": u.is_active,
+            "created_at": u.created_at.isoformat() if u.created_at else None,
+        }
+        for u in users
+    ]
 
 
 # --- Account Management Endpoints ---

@@ -19,34 +19,33 @@
         </a>
 
         <div class="nav-label">Workspace</div>
-        <nav class="primary-nav">
-          <button class="nav-item active" data-view="accounts"><span class="nav-icon">▦</span>Accounts</button>
-          <button class="nav-item" data-view="transfer"><span class="nav-icon">⇄</span>Transfer</button>
-          <button class="nav-item" data-view="statements"><span class="nav-icon">▤</span>Statements</button>
-          <button class="nav-item" data-view="audit"><span class="nav-icon">◷</span>Audit log</button>
-          <button class="nav-item" data-view="users"><span class="nav-icon">♙</span>Users &amp; roles</button>
+        <nav class="primary-nav" id="sidebar-nav">
+          <button class="nav-item active" data-view="accounts" id="nav-accounts"><span class="nav-icon">▦</span>Accounts</button>
+          <button class="nav-item" data-view="transfer" id="nav-transfer"><span class="nav-icon">⇄</span>Transfer</button>
+          <button class="nav-item" data-view="statements" id="nav-statements"><span class="nav-icon">▤</span>Statements</button>
+          <button class="nav-item" data-view="audit" id="nav-audit"><span class="nav-icon">◷</span>Audit log</button>
+          <button class="nav-item" data-view="users" id="nav-users"><span class="nav-icon">♙</span>User Management</button>
         </nav>
 
         <div class="sidebar-bottom">
-          <div class="preview-note"><span class="preview-dot"></span><span><b>Preview workspace</b><small>Sample data only</small></span></div>
-          <button class="profile-button" id="profile-button">
-            <span class="avatar">AM</span><span class="profile-copy"><b>Alex Morgan</b><small>Administrator</small></span><span class="profile-more">···</span>
+          <div class="preview-note" id="workspace-note"><span class="preview-dot" id="workspace-dot"></span><span><b id="workspace-title">Live Workspace</b><small id="workspace-subtitle">Backend Connected</small></span></div>
+          <button class="profile-button" id="profile-button" title="Sign in or manage session">
+            <span class="avatar" id="sidebar-avatar">🔑</span><span class="profile-copy"><b id="sidebar-name">Sign in</b><small id="sidebar-role">Click to authenticate</small></span><span class="profile-more" id="sidebar-auth-arrow">→</span>
           </button>
         </div>
       </aside>
 
       <main class="main-area">
         <header class="topbar">
-          <label class="search-box"><span aria-hidden="true">⌕</span><input id="global-search" type="search" placeholder="Search accounts or activity" aria-label="Search accounts or activity" /><kbd>⌘ K</kbd></label>
+          <label class="search-box"><span aria-hidden="true">⌕</span><input id="global-search" type="search" placeholder="Search accounts, transactions, or audit logs" aria-label="Search accounts or activity" /><kbd>⌘ K</kbd></label>
           <div class="topbar-right">
-            <span class="environment-tag"><i></i> Sandbox</span>
-            <div class="role-switch" aria-label="Preview role selector">
-              <button class="role-chip selected" data-role="Administrator"><span>⬡</span>Admin</button>
-              <button class="role-chip" data-role="Account Holder"><span>♙</span>Holder</button>
-              <button class="role-chip" data-role="Auditor"><span>◷</span>Auditor</button>
+            <span class="environment-tag" id="environment-tag"><i></i> Connected</span>
+            <div class="user-role-badge" id="user-role-badge" title="Role verified by backend authorization">
+              <span class="role-badge-dot">●</span>
+              <span class="role-badge-text" id="role-badge-text">Guest</span>
             </div>
-            <button class="icon-button" title="Notifications" aria-label="Notifications"><span class="bell">♧</span><i class="notification-dot"></i></button>
-            <button class="avatar-pill top-avatar" id="top-avatar" title="Sign in or view profile" aria-label="Sign in or view profile"><span class="avatar-bubble">🔑</span><span class="avatar-label">Sign in</span></button>
+            <button class="icon-button" id="refresh-data-button" title="Refresh live ledger" aria-label="Refresh live ledger"><span class="bell">↻</span></button>
+            <button class="avatar-pill top-avatar" id="top-avatar" title="Sign in or view profile" aria-label="Sign in or view profile"><span class="avatar-bubble" id="top-avatar-bubble">🔑</span><span class="avatar-label" id="top-avatar-label">Sign in</span></button>
           </div>
         </header>
 
@@ -64,19 +63,43 @@
           </div>
 
           <div class="section-heading">
-            <div><h2 id="section-title">Accounts <span class="count-badge" id="account-count">3</span></h2><p id="section-description">All balances shown are sample data</p></div>
-            <div class="section-actions"><button class="button button-quiet" id="filter-button">☷ <span>Filter</span></button><button class="button button-quiet" id="export-button">↓ <span>Export</span></button></div>
+            <div><h2 id="section-title">Accounts <span class="count-badge" id="account-count">0</span></h2><p id="section-description">Live verified accounts from backend ledger</p></div>
+            <div class="section-actions"><button class="button button-quiet" id="filter-button">☷ <span>Filter</span></button><button class="button button-quiet" id="export-button">↓ <span>Reconcile</span></button></div>
           </div>
 
+          <!-- Auth Prompt Card (Visible when signed out) -->
+          <div class="auth-prompt-card hidden" id="auth-prompt-card">
+            <div class="auth-prompt-icon">🔒</div>
+            <div class="auth-prompt-body">
+              <h3>Authentication Required</h3>
+              <p>Sign in with your registered credentials or create a new account to access your financial ledger and submit transactions.</p>
+            </div>
+            <div class="auth-prompt-actions">
+              <button class="button button-primary" id="prompt-signin-btn">Sign in</button>
+              <button class="button button-quiet" id="prompt-register-btn">Create account</button>
+            </div>
+          </div>
+
+          <!-- Accounts Grid View -->
           <div class="account-grid" id="account-grid" aria-live="polite"></div>
 
-          <section class="activity-section">
-            <div class="section-heading activity-heading"><div><h2>Recent activity</h2><p>Latest sample ledger events</p></div><button class="text-button" data-view="statements">View statements <span>→</span></button></div>
-            <div class="table-wrap"><table><thead><tr><th>ACTIVITY</th><th>ACCOUNT</th><th>INITIATED BY</th><th>DATE</th><th>AMOUNT</th><th>STATUS</th></tr></thead><tbody id="activity-rows"></tbody></table></div>
-            <div class="empty-state hidden" id="empty-state"><span>⌕</span><b>No matching activity</b><small>Try another search term or clear your filter.</small></div>
+          <!-- Dynamic Transfer & Money Movement View -->
+          <div class="transfer-view-panel hidden" id="transfer-view-panel"></div>
+
+          <!-- Dynamic Statements View -->
+          <div class="statements-view-panel hidden" id="statements-view-panel"></div>
+
+          <!-- Dynamic Users Management View -->
+          <div class="users-view-panel hidden" id="users-view-panel"></div>
+
+          <!-- Activity / Audit Section -->
+          <section class="activity-section" id="activity-section">
+            <div class="section-heading activity-heading"><div><h2 id="activity-heading-title">Recent activity</h2><p id="activity-heading-desc">Latest ledger entries</p></div><button class="text-button" id="toggle-activity-view-btn" data-view="statements">View statements <span>→</span></button></div>
+            <div class="table-wrap"><table><thead id="activity-table-head"><tr><th>ACTIVITY</th><th>ACCOUNT</th><th>INITIATED BY</th><th>DATE</th><th>AMOUNT</th><th>STATUS</th></tr></thead><tbody id="activity-rows"></tbody></table></div>
+            <div class="empty-state hidden" id="empty-state"><span>⌕</span><b id="empty-state-title">No matching activity</b><small id="empty-state-desc">No live transactions recorded on this ledger yet.</small></div>
           </section>
 
-          <footer class="invariant-footer"><span class="info-mark">i</span><span>Sample invariant: <b>₹45,000 + ₹30,000 + ₹25,000 = ₹1,00,000</b></span><span class="footer-separator"></span><span class="footer-preview"><i></i> Preview figures only</span><a href="#audit" data-view="audit">View audit log <span>↗</span></a></footer>
+          <footer class="invariant-footer"><span class="info-mark">i</span><span id="footer-invariant-text">Zero-sum balance invariant: <b>Debits = Credits (Net system sum = 0)</b></span><span class="footer-separator"></span><span class="footer-preview" id="footer-status-pill"><i></i> Live DB</span><a href="#audit" data-view="audit" id="footer-audit-link">View audit log <span>↗</span></a></footer>
         </section>
       </main>
     </div>
