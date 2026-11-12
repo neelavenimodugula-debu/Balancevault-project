@@ -66,7 +66,48 @@ def bootstrap_first_admin(session: Session | None = None) -> User | None:
 
         session.commit()
         print(f"Successfully bootstrapped first administrator: {admin_email}")
+        bootstrap_auditor(session)
         return admin_user
+    finally:
+        if owns_session:
+            session.close()
+
+
+def bootstrap_auditor(session: Session | None = None) -> User | None:
+    settings = get_settings()
+    if not settings.auditor_email or not settings.auditor_password:
+        return None
+
+    owns_session = False
+    if session is None:
+        Base.metadata.create_all(bind=engine)
+        session = SessionLocal()
+        owns_session = True
+
+    try:
+        existing = (
+            session.query(User)
+            .filter_by(email=settings.auditor_email)
+            .first()
+        )
+        if existing:
+            if existing.role != UserRole.AUDITOR:
+                existing.role = UserRole.AUDITOR
+                session.commit()
+                print(f"Updated existing user {existing.email} to auditor role.")
+            return existing
+
+        auditor = User(
+            id=uuid4(),
+            email=settings.auditor_email,
+            password_hash=hash_password(settings.auditor_password.get_secret_value()),
+            role=UserRole.AUDITOR,
+            is_active=True,
+        )
+        session.add(auditor)
+        session.commit()
+        print(f"Successfully bootstrapped auditor: {settings.auditor_email}")
+        return auditor
     finally:
         if owns_session:
             session.close()

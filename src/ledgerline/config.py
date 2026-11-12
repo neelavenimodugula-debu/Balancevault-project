@@ -22,6 +22,8 @@ class Settings(BaseSettings):
     rate_limit_per_minute: int = 60
     admin_email: str = "admin@ledgerline.local"
     admin_password: SecretStr = SecretStr("AdminInitialPass2026!")
+    auditor_email: str | None = None
+    auditor_password: SecretStr | None = None
     clearing_account_name: str = "SYSTEM_CLEARING"
 
     @model_validator(mode="after")

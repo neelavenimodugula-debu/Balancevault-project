@@ -17,7 +17,7 @@ from ledgerline.auth import (
     require_roles,
     verify_password,
 )
-from ledgerline.bootstrap import bootstrap_first_admin
+from ledgerline.bootstrap import bootstrap_auditor, bootstrap_first_admin
 from ledgerline.config import get_settings
 from ledgerline.database import Base, engine, get_session
 from ledgerline.models import (
@@ -34,6 +34,7 @@ from ledgerline.services.ledger import (
     execute_transfer,
     execute_withdrawal,
     reconcile_ledger_balances,
+    record_audit_event,
     verify_ledger_hash_chain,
 )
 
@@ -44,6 +45,7 @@ async def lifespan(app: FastAPI):
     try:
         Base.metadata.create_all(bind=engine)
         bootstrap_first_admin()
+        bootstrap_auditor()
     except Exception as exc:
         print(f"Startup database initialization notice: {exc}")
     yield
@@ -112,6 +114,16 @@ class RegisterRequest(BaseModel):
     email: str = Field(pattern=EMAIL_REGEX)
     password: str = Field(min_length=8)
     full_name: str | None = None
+
+
+class ProvisionAuditorRequest(BaseModel):
+    email: str = Field(pattern=EMAIL_REGEX, description="Auditor email address")
+    password: str = Field(min_length=8, description="Initial secure password for the auditor (min 8 characters)")
+    full_name: str | None = Field(default=None, max_length=120)
+
+
+class UserRoleUpdateRequest(BaseModel):
+    role: UserRole = Field(description="Target role to assign: admin, auditor, account_holder")
 
 
 class LoginRequest(BaseModel):
@@ -332,6 +344,141 @@ def list_workspace_users(
         }
         for u in users
     ]
+
+
+@app.post(
+    "/users/auditors",
+    status_code=status.HTTP_201_CREATED,
+    tags=["users"],
+    summary="Provision a new Auditor account or promote user (Administrator Only)",
+    description="Securely provisions an Auditor account with read-only inspection privileges. Strictly restricted to authorized Administrators. Logs immutable audit event.",
+)
+def provision_auditor_account(
+    payload: ProvisionAuditorRequest,
+    current_user: User = Depends(require_roles(UserRole.ADMIN)),
+    session: Session = Depends(get_session),
+    _rate=Depends(rate_limiter()),
+) -> dict:
+    existing = session.query(User).filter_by(email=payload.email).first()
+    if existing:
+        if existing.role == UserRole.AUDITOR or str(existing.role) == "auditor":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="A user with this email address is already an auditor.",
+            )
+        # Promote existing account holder to auditor
+        old_role = str(existing.role.value if hasattr(existing.role, "value") else existing.role)
+        existing.role = UserRole.AUDITOR
+        if payload.password:
+            existing.password_hash = hash_password(payload.password)
+        session.commit()
+        session.refresh(existing)
+
+        record_audit_event(
+            session=session,
+            actor_id=current_user.id,
+            action="PROMOTE_AUDITOR",
+            outcome="success",
+            details={
+                "target_user_id": str(existing.id),
+                "email": existing.email,
+                "old_role": old_role,
+                "new_role": "auditor",
+                "admin_actor": current_user.email,
+            },
+        )
+        return {
+            "id": str(existing.id),
+            "email": existing.email,
+            "role": existing.role.value if hasattr(existing.role, "value") else str(existing.role),
+            "status": "promoted",
+            "created_at": existing.created_at.isoformat() if existing.created_at else None,
+        }
+
+    # Create brand new Auditor user
+    auditor = User(
+        email=payload.email,
+        password_hash=hash_password(payload.password),
+        role=UserRole.AUDITOR,
+        is_active=True,
+    )
+    session.add(auditor)
+    session.commit()
+    session.refresh(auditor)
+
+    record_audit_event(
+        session=session,
+        actor_id=current_user.id,
+        action="PROVISION_AUDITOR",
+        outcome="success",
+        details={
+            "target_user_id": str(auditor.id),
+            "email": auditor.email,
+            "role": "auditor",
+            "admin_actor": current_user.email,
+        },
+    )
+
+    return {
+        "id": str(auditor.id),
+        "email": auditor.email,
+        "role": auditor.role.value if hasattr(auditor.role, "value") else str(auditor.role),
+        "status": "created",
+        "created_at": auditor.created_at.isoformat() if auditor.created_at else None,
+    }
+
+
+@app.patch(
+    "/users/{user_id}/role",
+    tags=["users"],
+    summary="Update or promote a user's role (Administrator Only)",
+    description="Promotes or updates a user's assigned role. Strictly restricted to authorized Administrators. Logs immutable audit event.",
+)
+def update_user_role(
+    user_id: UUID,
+    payload: UserRoleUpdateRequest,
+    current_user: User = Depends(require_roles(UserRole.ADMIN)),
+    session: Session = Depends(get_session),
+    _rate=Depends(rate_limiter()),
+) -> dict:
+    target_user = session.get(User, user_id)
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if target_user.id == current_user.id and payload.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Administrators cannot demote their own account.",
+        )
+
+    old_role = str(target_user.role.value if hasattr(target_user.role, "value") else target_user.role)
+    new_role_str = str(payload.role.value if hasattr(payload.role, "value") else payload.role)
+
+    target_user.role = payload.role
+    session.commit()
+    session.refresh(target_user)
+
+    record_audit_event(
+        session=session,
+        actor_id=current_user.id,
+        action="UPDATE_USER_ROLE",
+        outcome="success",
+        details={
+            "target_user_id": str(target_user.id),
+            "email": target_user.email,
+            "old_role": old_role,
+            "new_role": new_role_str,
+            "admin_actor": current_user.email,
+        },
+    )
+
+    return {
+        "id": str(target_user.id),
+        "email": target_user.email,
+        "role": new_role_str,
+        "is_active": target_user.is_active,
+        "created_at": target_user.created_at.isoformat() if target_user.created_at else None,
+    }
 
 
 # --- Account Management Endpoints ---

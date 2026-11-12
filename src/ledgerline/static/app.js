@@ -831,12 +831,15 @@ async function renderUsersPanel() {
 
   panel.innerHTML = `
     <div class="panel-card">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
         <div>
           <h3>User Management &amp; Role Authorization</h3>
           <p style="margin: 0;">Registered accounts and their backend-assigned role permissions.</p>
         </div>
-        <button class="button button-quiet" id="refresh-users-btn">↻ Refresh Users</button>
+        <div style="display: flex; gap: 8px;">
+          <button class="button button-primary" id="open-provision-auditor-btn">＋ Provision Auditor</button>
+          <button class="button button-quiet" id="refresh-users-btn">↻ Refresh Users</button>
+        </div>
       </div>
       <div id="users-table-container">
         <p style="color: var(--muted); font-size: 12px;">Loading registered users from backend...</p>
@@ -845,6 +848,32 @@ async function renderUsersPanel() {
   `;
 
   panel.querySelector("#refresh-users-btn")?.addEventListener("click", loadUsersTable);
+  panel.querySelector("#open-provision-auditor-btn")?.addEventListener("click", () => {
+    openDialog(
+      "Provision Auditor Account",
+      "Securely create or promote an Auditor account with read-only inspection privileges.",
+      `
+        <label class="form-field">Auditor Email<input type="email" name="email" required placeholder="auditor@firm.com" /></label>
+        <label class="form-field">Initial Password (min 8 chars)<input type="password" name="password" required minlength="8" placeholder="SecurePass123!" /></label>
+      `,
+      "Provision Auditor",
+      async (formData) => {
+        const email = formData.get("email");
+        const password = formData.get("password");
+        try {
+          const res = await apiRequest("/users/auditors", {
+            method: "POST",
+            body: JSON.stringify({ email, password }),
+          });
+          dialog.close();
+          showToast(`Auditor account ${res.email} provisioned successfully (${res.status})!`);
+          await loadUsersTable();
+        } catch (err) {
+          showToast(`Provisioning failed: ${err.message}`);
+        }
+      }
+    );
+  });
 
   async function loadUsersTable() {
     const container = panel.querySelector("#users-table-container");
@@ -858,22 +887,54 @@ async function renderUsersPanel() {
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>USER EMAIL</th><th>ROLE</th><th>STATUS</th><th>USER ID</th><th>REGISTERED</th></tr>
+              <tr><th>USER EMAIL</th><th>ROLE</th><th>STATUS</th><th>ACTIONS</th><th>USER ID</th><th>REGISTERED</th></tr>
             </thead>
             <tbody>
-              ${usersList.map((u) => `
-                <tr>
-                  <td><strong>${escapeHtml(u.email)}</strong></td>
-                  <td><span class="user-table-badge ${u.role}">${escapeHtml(u.role)}</span></td>
-                  <td><span class="activity-status">${u.is_active ? 'Active' : 'Disabled'}</span></td>
-                  <td><code>${escapeHtml(u.id)}</code></td>
-                  <td>${u.created_at ? new Date(u.created_at).toLocaleDateString() : 'N/A'}</td>
-                </tr>
-              `).join("")}
+              ${usersList.map((u) => {
+                const roleLower = (u.role || "").toLowerCase();
+                let actionHtml = `<span style="color: var(--muted); font-size: 11px;">Protected</span>`;
+                if (roleLower === "account_holder") {
+                  actionHtml = `<button class="text-button promote-btn" data-user-id="${u.id}" data-email="${escapeHtml(u.email)}" style="font-size: 11px;">Promote to Auditor</button>`;
+                } else if (roleLower === "auditor") {
+                  actionHtml = `<span style="color: #c084fc; font-weight: 600; font-size: 11px;">Auditor (Active)</span>`;
+                } else if (roleLower === "admin") {
+                  actionHtml = `<span style="color: #f59e0b; font-weight: 600; font-size: 11px;">Administrator</span>`;
+                }
+                return `
+                  <tr>
+                    <td><strong>${escapeHtml(u.email)}</strong></td>
+                    <td><span class="user-table-badge ${u.role}">${escapeHtml(u.role)}</span></td>
+                    <td><span class="activity-status">${u.is_active ? 'Active' : 'Disabled'}</span></td>
+                    <td>${actionHtml}</td>
+                    <td><code>${escapeHtml(u.id.slice(0, 8))}...</code></td>
+                    <td>${u.created_at ? new Date(u.created_at).toLocaleDateString() : 'N/A'}</td>
+                  </tr>
+                `;
+              }).join("")}
             </tbody>
           </table>
         </div>
       `;
+
+      // Bind promote buttons
+      container.querySelectorAll(".promote-btn").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const userId = btn.dataset.userId;
+          const email = btn.dataset.email;
+          if (!confirm(`Are you sure you want to promote ${email} to Auditor role?`)) return;
+
+          try {
+            await apiRequest(`/users/${userId}/role`, {
+              method: "PATCH",
+              body: JSON.stringify({ role: "auditor" }),
+            });
+            showToast(`User ${email} promoted to Auditor successfully!`);
+            await loadUsersTable();
+          } catch (err) {
+            showToast(`Role update failed: ${err.message}`);
+          }
+        });
+      });
     } catch (err) {
       container.innerHTML = `<p style="color: var(--red);">Failed to load users: ${escapeHtml(err.message)}</p>`;
     }
