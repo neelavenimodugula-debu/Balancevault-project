@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: ledgerline-api
+    runtime: python
+    buildCommand: pip install --upgrade pip && pip install . && alembic upgrade head && python -m ledgerline.bootstrap
+    startCommand: uvicorn ledgerline.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: LEDGERLINE_ENVIRONMENT
+        value: production
+      - key: LEDGERLINE_DATABASE_URL
+        sync: false
+      - key: LEDGERLINE_JWT_SECRET
+        generateValue: true
+      - key: LEDGERLINE_REDIS_URL
+        fromRedis:
+          name: ledgerline-redis
+          property: connectionString
+      - key: LEDGERLINE_RATE_LIMIT_PER_MINUTE
+        value: "60"
+      - key: LEDGERLINE_ADMIN_EMAIL
+        value: admin@gmail.com
+      - key: LEDGERLINE_ADMIN_PASSWORD
+        sync: false
+
+  - type: redis
+    name: ledgerline-redis
+    plan: free
+    ipAllowList: []
