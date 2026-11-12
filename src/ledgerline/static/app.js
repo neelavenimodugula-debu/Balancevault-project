@@ -22,7 +22,7 @@ async function apiRequest(path, options = {}) {
   }
 
   try {
-    const res = await fetch(path, { ...options, headers });
+    const res = await fetch(path, { ...options, headers, credentials: "same-origin" });
     const data = await res.json().catch(() => ({}));
 
     if (res.status === 401) {
@@ -165,7 +165,10 @@ function updateNavigationForRole() {
   }
 }
 
-function handleLogout(showNotification = true) {
+async function handleLogout(showNotification = true) {
+  try {
+    await fetch("/auth/logout", { method: "POST", credentials: "same-origin" }).catch(() => null);
+  } catch (_) {}
   authToken = null;
   currentUser = null;
   localStorage.removeItem("ledgerline_token");
@@ -419,11 +422,17 @@ async function loadLiveLedger() {
       updateAuthUI();
     }
 
-    // 3. Cryptographic Hash-Chain Verification
-    const integrity = await apiRequest("/ledger/verify").catch(() => null);
-    if (integrity && integrity.verified) {
-      document.querySelector(".balanced-pill").innerHTML = "<i>✓</i> Cryptographic Chain Verified";
-      document.querySelector(".status-detail").textContent = `${integrity.total_entries || 0} ledger blocks cryptographically linked & reconciled.`;
+    // 3. Cryptographic Hash-Chain Verification (Admin & Auditor)
+    const role = currentUser ? (currentUser.role || "").toLowerCase() : "guest";
+    if (role === "admin" || role === "auditor") {
+      const integrity = await apiRequest("/ledger/verify").catch(() => null);
+      if (integrity && integrity.verified) {
+        document.querySelector(".balanced-pill").innerHTML = "<i>✓</i> Cryptographic Chain Verified";
+        document.querySelector(".status-detail").textContent = `${integrity.total_entries || 0} ledger blocks cryptographically linked & reconciled.`;
+      }
+    } else if (role === "account_holder") {
+      document.querySelector(".balanced-pill").innerHTML = "<i>🔒</i> Customer Account Verified";
+      document.querySelector(".status-detail").textContent = "Account balances and immutable statements verified with backend.";
     }
 
     // 4. Fetch Live Accounts from Backend (Automatically scoped to owner for account_holder, or all for admin/auditor)

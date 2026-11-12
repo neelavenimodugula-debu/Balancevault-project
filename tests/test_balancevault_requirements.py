@@ -325,14 +325,15 @@ def test_ledger_hash_chain_verification_and_tamper_detection(
     client: TestClient, user_a: User, admin_user: User, db_session: Session
 ) -> None:
     headers_a = auth_headers(user_a)
+    headers_admin = auth_headers(admin_user)
     acc_a_id = client.post("/accounts", json={"name": "Chain Test", "currency": "INR"}, headers=headers_a).json()["id"]
 
     # Execute multiple deposits
     client.post("/deposits", json={"account_id": acc_a_id, "amount_minor": 1000}, headers=headers_a)
     client.post("/deposits", json={"account_id": acc_a_id, "amount_minor": 2000}, headers=headers_a)
 
-    # Verify clean hash chain
-    verify_res = client.get("/ledger/verify", headers=headers_a)
+    # Verify clean hash chain (requires Admin or Auditor role)
+    verify_res = client.get("/ledger/verify", headers=headers_admin)
     assert verify_res.status_code == 200
     assert verify_res.json()["verified"] is True
     assert verify_res.json()["total_entries"] >= 4  # 2 entries per deposit (clearing + customer)
@@ -343,8 +344,8 @@ def test_ledger_hash_chain_verification_and_tamper_detection(
     entry.amount_minor = original_amount + 99999
     db_session.commit()
 
-    # Re-verify: must catch the tamper
-    tamper_res = client.get("/ledger/verify", headers=headers_a)
+    # Re-verify: must catch the tamper (requires Admin or Auditor)
+    tamper_res = client.get("/ledger/verify", headers=headers_admin)
     assert tamper_res.status_code == 200
     assert tamper_res.json()["verified"] is False
     assert "Tamper detected" in tamper_res.json()["error"]

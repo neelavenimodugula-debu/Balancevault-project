@@ -69,12 +69,17 @@ def test_complete_auth_and_rbac_workflow(client: TestClient, db_session):
     )
     assert bad_email.status_code == status.HTTP_401_UNAUTHORIZED
 
-    # 5. Session handling via GET /auth/me
+    # 5. Session handling via GET /auth/me (Bearer header & HttpOnly cookie)
     headers_holder = {"Authorization": f"Bearer {holder_token}"}
     me_resp = client.get("/auth/me", headers=headers_holder)
     assert me_resp.status_code == status.HTTP_200_OK
     assert me_resp.json()["email"] == holder_email
     assert me_resp.json()["role"].lower() == "account_holder"
+
+    # Test HttpOnly cookie authentication fallback
+    cookie_resp = client.get("/auth/me", cookies={"ledgerline_access_token": holder_token})
+    assert cookie_resp.status_code == status.HTTP_200_OK
+    assert cookie_resp.json()["email"] == holder_email
 
     # 6. Verify account-holder permissions (create account, view own accounts)
     acc_resp = client.post(
@@ -97,6 +102,9 @@ def test_complete_auth_and_rbac_workflow(client: TestClient, db_session):
 
     audit_resp = client.get("/audit/events", headers=headers_holder)
     assert audit_resp.status_code == status.HTTP_403_FORBIDDEN
+
+    verify_holder_resp = client.get("/ledger/verify", headers=headers_holder)
+    assert verify_holder_resp.status_code == status.HTTP_403_FORBIDDEN, "Account holder must not access system ledger verify"
 
     sys_acc_resp = client.post(
         "/accounts",
@@ -164,7 +172,11 @@ def test_complete_auth_and_rbac_workflow(client: TestClient, db_session):
     )
     assert aud_wd.status_code == status.HTTP_403_FORBIDDEN
 
-    # 9. Verify unauthenticated calls are rejected (logout state)
+    # 9. Verify logout endpoint and unauthenticated calls are rejected (logout state)
+    logout_resp = client.post("/auth/logout")
+    assert logout_resp.status_code == status.HTTP_200_OK
+    assert logout_resp.json()["status"] == "ok"
+
     no_auth_accounts = client.get("/accounts")
     assert no_auth_accounts.status_code == status.HTTP_401_UNAUTHORIZED
 

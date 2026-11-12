@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from uuid import UUID
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Request, status
+from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -219,6 +219,7 @@ def register_user(
 @app.post("/auth/login", tags=["authentication"])
 def login_user(
     payload: LoginRequest,
+    response: Response,
     session: Session = Depends(get_session),
     _rate=Depends(rate_limiter(max_requests=30)),
 ) -> TokenResponse:
@@ -237,6 +238,20 @@ def login_user(
         )
 
     token = create_access_token(user)
+    settings = get_settings()
+    is_prod = settings.environment.lower() == "production"
+
+    # Set secure HttpOnly cookie with SameSite protection against CSRF
+    response.set_cookie(
+        key="ledgerline_access_token",
+        value=token,
+        httponly=True,
+        samesite="lax",
+        secure=is_prod,
+        max_age=settings.token_expiry_minutes * 60,
+        path="/",
+    )
+
     return TokenResponse(
         access_token=token,
         token_type="bearer",
@@ -246,6 +261,20 @@ def login_user(
             "role": user.role.value if hasattr(user.role, "value") else str(user.role),
         },
     )
+
+
+@app.post("/auth/logout", tags=["authentication"])
+def logout_user(response: Response) -> dict[str, str]:
+    settings = get_settings()
+    is_prod = settings.environment.lower() == "production"
+    response.delete_cookie(
+        key="ledgerline_access_token",
+        path="/",
+        httponly=True,
+        samesite="lax",
+        secure=is_prod,
+    )
+    return {"status": "ok", "message": "Signed out successfully"}
 
 
 @app.get("/auth/me", tags=["authentication"])
@@ -498,7 +527,7 @@ def get_account_statement(
 
 @app.get("/ledger/verify", tags=["ledger"])
 def verify_ledger_integrity(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.AUDITOR)),
     session: Session = Depends(get_session),
 ) -> dict:
     return verify_ledger_hash_chain(session)
