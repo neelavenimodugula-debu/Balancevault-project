@@ -49,10 +49,38 @@ async def lifespan(app: FastAPI):
     yield
 
 
+SWAGGER_DESCRIPTION = """
+### LedgerLine Financial Integrity Ledger & Money Movement API
+
+Interactive Swagger API Testing Suite for LedgerLine.
+
+#### Authentication Guide for Swagger:
+1. **Register** a new user with `POST /auth/register` (or sign in with existing credentials via `POST /auth/login`).
+2. Copy the returned `access_token` string.
+3. Click the green **Authorize 🔓** button at the top-right of this page.
+4. Paste your token into the **Value** field and click **Authorize**.
+5. All protected endpoints (`/accounts`, `/transfers`, `/deposits`, `/withdrawals`, `/statements/{account_id}`, `/ledger/verify`, `/ledger/reconciliation`, `/audit/events`, `/users`) will now execute with your authenticated role!
+
+#### Supported Roles & Permissions:
+- **`admin`**: System overview, account management, all statements, `/users`, `/audit/events`, `/ledger/verify`, `/ledger/reconciliation`.
+- **`account_holder`**: Own accounts only, transfers from own accounts, deposits & withdrawals, personal statements.
+- **`auditor`**: Read-only inspection of accounts, statements, `/audit/events`, `/ledger/verify`, `/ledger/reconciliation`.
+"""
+
 app = FastAPI(
-    title="LedgerLine",
-    version="0.1.0",
-    description="An integrity-first money movement ledger API",
+    title="LedgerLine API",
+    version="1.0.0",
+    description=SWAGGER_DESCRIPTION,
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json",
+    swagger_ui_parameters={
+        "persistAuthorization": True,
+        "displayRequestDuration": True,
+        "docExpansion": "list",
+        "filter": True,
+        "tryItOutEnabled": True,
+    },
     lifespan=lifespan,
 )
 

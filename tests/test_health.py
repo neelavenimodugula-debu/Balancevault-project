@@ -20,3 +20,21 @@ def test_dashboard_and_assets_are_served() -> None:
     assert "LedgerLine" in page.text
     assert script.status_code == 200
     assert "renderAccounts" in script.text
+
+
+def test_swagger_and_openapi_documentation_served() -> None:
+    with TestClient(app) as client:
+        docs = client.get("/docs")
+        redoc = client.get("/redoc")
+        openapi = client.get("/openapi.json")
+
+    assert docs.status_code == 200
+    assert "swagger-ui" in docs.text.lower()
+    assert redoc.status_code == 200
+    assert openapi.status_code == 200
+
+    schema = openapi.json()
+    assert "components" in schema
+    assert "securitySchemes" in schema["components"]
+    assert "HTTPBearer" in schema["components"]["securitySchemes"]
+    assert schema["info"]["title"] == "LedgerLine API"

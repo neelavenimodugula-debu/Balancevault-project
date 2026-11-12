@@ -39,6 +39,10 @@
         <header class="topbar">
           <label class="search-box"><span aria-hidden="true">⌕</span><input id="global-search" type="search" placeholder="Search accounts, transactions, or audit logs" aria-label="Search accounts or activity" /><kbd>⌘ K</kbd></label>
           <div class="topbar-right">
+            <a href="/docs" target="_blank" rel="noopener noreferrer" class="docs-link-pill" title="Open Swagger Interactive API Docs">
+              <span class="docs-icon">⚡</span>
+              <span>Swagger API</span>
+            </a>
             <span class="environment-tag" id="environment-tag"><i></i> Connected</span>
             <div class="user-role-badge" id="user-role-badge" title="Role verified by backend authorization">
               <span class="role-badge-dot">●</span>
@@ -99,7 +103,7 @@
             <div class="empty-state hidden" id="empty-state"><span>⌕</span><b id="empty-state-title">No matching activity</b><small id="empty-state-desc">No live transactions recorded on this ledger yet.</small></div>
           </section>
 
-          <footer class="invariant-footer"><span class="info-mark">i</span><span id="footer-invariant-text">Zero-sum balance invariant: <b>Debits = Credits (Net system sum = 0)</b></span><span class="footer-separator"></span><span class="footer-preview" id="footer-status-pill"><i></i> Live DB</span><a href="#audit" data-view="audit" id="footer-audit-link">View audit log <span>↗</span></a></footer>
+          <footer class="invariant-footer"><span class="info-mark">i</span><span id="footer-invariant-text">Zero-sum balance invariant: <b>Debits = Credits (Net system sum = 0)</b></span><span class="footer-separator"></span><span class="footer-preview" id="footer-status-pill"><i></i> Live DB</span><a href="/docs" target="_blank" rel="noopener noreferrer" id="footer-swagger-link" style="color: #60a5fa; text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">⚡ Swagger API <span>↗</span></a><span class="footer-separator"></span><a href="#audit" data-view="audit" id="footer-audit-link">View audit log <span>↗</span></a></footer>
         </section>
       </main>
     </div>

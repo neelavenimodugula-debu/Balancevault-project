@@ -298,6 +298,32 @@ button:focus-visible, input:focus-visible, select:focus-visible {
 }
 .environment-tag i { width: 6px; height: 6px; box-shadow: none; }
 
+.docs-link-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(96, 165, 250, 0.12);
+  border: 1px solid rgba(96, 165, 250, 0.32);
+  color: #93c5fd;
+  padding: 5px 11px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+  letter-spacing: .3px;
+  transition: all .2s ease;
+}
+.docs-link-pill:hover {
+  background: rgba(96, 165, 250, 0.24);
+  border-color: #60a5fa;
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+.docs-icon {
+  font-size: 12px;
+}
+
 .user-role-badge {
   display: inline-flex;
   align-items: center;
