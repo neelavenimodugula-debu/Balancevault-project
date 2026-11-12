@@ -267,3 +267,4 @@ def test_auditor_permissions_allowed_and_forbidden(client: TestClient, db_sessio
         json={"email": "another@audit.com", "password": "Password123!"},
     )
     assert res_prov.status_code == status.HTTP_403_FORBIDDEN
+

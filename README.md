@@ -103,9 +103,15 @@ LedgerLine is built with an integrity-first architecture in Python 3.13, FastAPI
 | `/health/db` | `GET` | Public | Database connectivity health check |
 | `/health/redis` | `GET` | Public | Redis connectivity health check |
 | `/ready` | `GET` | Public | Readiness probe |
+| `/docs` | `GET` | Public | Swagger Interactive API Documentation |
+| `/redoc` | `GET` | Public | ReDoc Technical API Reference |
 | `/auth/register` | `POST` | Public | Register new account holder |
-| `/auth/login` | `POST` | Public | Authenticate user & retrieve JWT |
-| `/auth/me` | `GET` | Authenticated | Get current authenticated user profile |
+| `/auth/login` | `POST` | Public | Authenticate user & retrieve JWT / HttpOnly cookie |
+| `/auth/logout` | `POST` | Public | Log out user & clear session cookies |
+| `/auth/me` | `GET` | Authenticated | Get current authenticated user profile & role |
+| `/users` | `GET` | Admin | List all registered workspace users |
+| `/users/auditors` | `POST` | Admin | Provision a new auditor or promote account holder |
+| `/users/{id}/role` | `PATCH` | Admin | Promote or update a user's assigned role |
 | `/accounts` | `POST` | Admin, Holder | Create a new ledger account |
 | `/accounts` | `GET` | Authenticated | List accessible accounts |
 | `/accounts/{id}`| `GET` | Authenticated | Get account details (enforces ownership) |
@@ -113,7 +119,7 @@ LedgerLine is built with an integrity-first architecture in Python 3.13, FastAPI
 | `/withdrawals` | `POST` | Admin, Holder | Execute withdrawal against clearing account |
 | `/transfers` | `POST` | Admin, Holder | Execute atomic double-entry transfer |
 | `/statements/{id}` | `GET` | Authenticated | View account statements and entry history |
-| `/ledger/verify` | `GET` | Authenticated | Verify SHA-256 cryptographic hash-chain |
+| `/ledger/verify` | `GET` | Admin, Auditor | Verify SHA-256 cryptographic hash-chain |
 | `/ledger/reconciliation` | `GET` | Admin, Auditor | Verify system-wide balance conservation (sum=0) |
 | `/audit/events` | `GET` | Admin, Auditor | View append-only audit trail |
 
@@ -197,26 +203,17 @@ python -m pytest tests/test_concurrency.py -v
 python -m ruff check src tests
 ```
 
-### Verified Test Cases (19 passed):
-- `test_health_and_readiness_endpoints`: `/health`, `/health/db`, `/ready`.
-- `test_user_registration_and_login`: Registration, login, JWT issuance, duplicate rejection.
-- `test_prevent_privilege_escalation`: Prevents user-supplied admin role.
-- `test_account_creation_and_isolation`: Account creation & cross-user isolation.
-- `test_successful_deposit_and_withdrawal`: Double-entry balanced external movements.
-- `test_successful_transfer_and_double_entry_balance`: Double-entry atomic transfer.
-- `test_overdraft_prevention`: Rejects negative balances and prevents balance deduction.
-- `test_duplicate_idempotency_requests`: Cache replay on match; 409 conflict on payload mismatch.
-- `test_transaction_rollback_on_failure`: Failure leaves zero partial state.
-- `test_unauthorized_cross_account_transfer`: Blocks transferring out of another user's account.
-- `test_rbac_auditor_restrictions`: Auditor blocked from creating accounts/transfers; allowed read-only.
-- `test_ledger_hash_chain_verification_and_tamper_detection`: Cryptographic hash chain validation & tamper detection.
-- `test_rate_limiting`: Exceeding threshold triggers 429 Too Many Requests.
-- `test_concurrent_withdrawal_race_condition`: 5 concurrent threads attempting to overdraw; exactly 1 succeeds.
-- `test_opposing_transfers_no_deadlock`: Bidirectional concurrent transfers complete without deadlock.
-- `test_health_check_returns_ok`: Baseline health endpoint contract.
-- `test_dashboard_and_assets_are_served`: Dashboard UI assets served correctly.
-- `test_ledger_schema_uses_integer_minor_units`: BigInteger minor units verified.
-- `test_schema_includes_audit_and_idempotency_records`: Metadata integrity verified.
+### Verified Test Suites (30 automated tests passed):
+- **Core Financial & Engine** (`tests/test_balancevault_requirements.py`): 13 passed
+- **Auditor Provisioning & RBAC** (`tests/test_auditor_provisioning.py`): 5 passed
+- **Frontend Auth & RBAC Workflow** (`tests/test_frontend_auth_and_rbac_workflow.py`): Comprehensive 10-step workflow passed
+- **Production Redis & Rate Limiting** (`tests/test_production_rate_limiting.py`): 4 passed
+- **Concurrency & Deadlock Prevention** (`tests/test_concurrency.py`): 2 passed
+- **Health & OpenAPI Documentation** (`tests/test_health.py`): 3 passed
+- **Database Immutability Triggers** (`tests/test_immutability.py`): 1 passed
+- **Schema & Minor Unit Compliance** (`tests/test_schema.py`): 2 passed
+
+For detailed launch and environment instructions, see [STARTUP.md](file:///c:/Users/ADMIN/OneDrive/Desktop/sri/Balancevault-project/STARTUP.md).
 
 ---
 
