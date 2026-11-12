@@ -30,16 +30,25 @@ let toastTimer;
 
 function updateAuthUI() {
   const profileBtn = document.querySelector("#profile-button");
-  const topAvatar = document.querySelector(".top-avatar");
-  if (!profileBtn) return;
+  const topAvatar = document.querySelector("#top-avatar") || document.querySelector(".top-avatar");
 
   if (authToken && currentUser) {
     const initials = currentUser.email.slice(0, 2).toUpperCase();
-    profileBtn.innerHTML = `<span class="avatar">${initials}</span><span class="profile-copy"><b>${escapeHtml(currentUser.email)}</b><small>${currentUser.role ? currentUser.role.toUpperCase() : "AUTHENTICATED"}</small></span><span class="profile-more">🚪</span>`;
-    if (topAvatar) topAvatar.textContent = initials;
+    if (profileBtn) {
+      profileBtn.innerHTML = `<span class="avatar">${initials}</span><span class="profile-copy"><b>${escapeHtml(currentUser.email)}</b><small>${currentUser.role ? currentUser.role.toUpperCase() : "AUTHENTICATED"}</small></span><span class="profile-more">🚪</span>`;
+    }
+    if (topAvatar) {
+      topAvatar.innerHTML = `<span class="avatar-bubble">${initials}</span><span class="avatar-label">${escapeHtml(currentUser.email.split("@")[0])}</span>`;
+      topAvatar.classList.add("authenticated");
+    }
   } else {
-    profileBtn.innerHTML = `<span class="avatar">🔑</span><span class="profile-copy"><b>Sign in</b><small>Click to authenticate</small></span><span class="profile-more">→</span>`;
-    if (topAvatar) topAvatar.textContent = "?";
+    if (profileBtn) {
+      profileBtn.innerHTML = `<span class="avatar">🔑</span><span class="profile-copy"><b>Sign in</b><small>Click to authenticate</small></span><span class="profile-more">→</span>`;
+    }
+    if (topAvatar) {
+      topAvatar.innerHTML = `<span class="avatar-bubble">🔑</span><span class="avatar-label">Sign in</span>`;
+      topAvatar.classList.remove("authenticated");
+    }
   }
 }
 
