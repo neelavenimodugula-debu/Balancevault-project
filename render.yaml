@@ -28,3 +28,4 @@ services:
     name: ledgerline-redis
     plan: free
     ipAllowList: []
+
