@@ -12,6 +12,11 @@ let activity = [
 
 let authToken = localStorage.getItem("ledgerline_token") || null;
 let currentUser = null;
+try {
+  currentUser = JSON.parse(localStorage.getItem("ledgerline_user") || "null");
+} catch (e) {
+  currentUser = null;
+}
 
 const money = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 });
 const grid = document.querySelector("#account-grid");
@@ -22,6 +27,21 @@ const dialogContent = document.querySelector("#dialog-content");
 let activeView = "accounts";
 let activeRole = "Administrator";
 let toastTimer;
+
+function updateAuthUI() {
+  const profileBtn = document.querySelector("#profile-button");
+  const topAvatar = document.querySelector(".top-avatar");
+  if (!profileBtn) return;
+
+  if (authToken && currentUser) {
+    const initials = currentUser.email.slice(0, 2).toUpperCase();
+    profileBtn.innerHTML = `<span class="avatar">${initials}</span><span class="profile-copy"><b>${escapeHtml(currentUser.email)}</b><small>${currentUser.role ? currentUser.role.toUpperCase() : "AUTHENTICATED"}</small></span><span class="profile-more">🚪</span>`;
+    if (topAvatar) topAvatar.textContent = initials;
+  } else {
+    profileBtn.innerHTML = `<span class="avatar">🔑</span><span class="profile-copy"><b>Sign in</b><small>Click to authenticate</small></span><span class="profile-more">→</span>`;
+    if (topAvatar) topAvatar.textContent = "?";
+  }
+}
 
 async function apiRequest(path, options = {}) {
   const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
@@ -39,20 +59,27 @@ async function apiRequest(path, options = {}) {
 
 async function loadLiveLedger() {
   try {
-    // Check health
-    const health = await apiRequest("/health");
-    if (health.status === "ok") {
+    // 1. Check health (public endpoint)
+    const health = await apiRequest("/health").catch(() => null);
+    if (health && health.status === "ok") {
       document.querySelector(".environment-tag").innerHTML = "<i></i> Live Connected";
     }
 
-    // Check ledger hash-chain integrity
+    // If not authenticated, do not make protected calls; guide the user to sign in
+    if (!authToken) {
+      document.querySelector(".balanced-pill").innerHTML = "<i>🔒</i> Sign in to view live ledger";
+      document.querySelector(".status-detail").textContent = "Live database connected. Click 'Sign in' below to view accounts & cryptographic chain.";
+      return;
+    }
+
+    // 2. Check ledger hash-chain integrity (requires auth)
     const integrity = await apiRequest("/ledger/verify").catch(() => null);
     if (integrity && integrity.verified) {
       document.querySelector(".balanced-pill").innerHTML = "<i>✓</i> Cryptographic Chain Verified";
       document.querySelector(".status-detail").textContent = `${integrity.total_entries || 0} ledger blocks cryptographically linked & reconciled.`;
     }
 
-    // Try loading accounts
+    // 3. Try loading accounts (requires auth)
     const serverAccounts = await apiRequest("/accounts").catch(() => null);
     if (serverAccounts && serverAccounts.length > 0) {
       accounts = serverAccounts.map((a) => ({
@@ -247,6 +274,61 @@ function openTransferDialog() {
   });
 }
 
+function openLoginDialog() {
+  openDialog(
+    "Sign in to LedgerLine",
+    "Enter your registered credentials to access live ledger accounts and cryptographic verification.",
+    `
+    <label class="form-field">Email address<input name="email" type="email" required placeholder="admin@gmail.com" value="${currentUser ? currentUser.email : "admin@gmail.com"}" /></label>
+    <label class="form-field">Password<input name="password" type="password" required placeholder="••••••••" /></label>
+    `,
+    "Sign in",
+    async (form) => {
+      const email = String(form.get("email")).trim();
+      const password = String(form.get("password"));
+      try {
+        const data = await apiRequest("/auth/login", {
+          method: "POST",
+          body: JSON.stringify({ email, password }),
+        });
+        authToken = data.access_token;
+        currentUser = data.user;
+        localStorage.setItem("ledgerline_token", authToken);
+        localStorage.setItem("ledgerline_user", JSON.stringify(currentUser));
+        dialog.close();
+        updateAuthUI();
+        showToast(`Welcome back, ${currentUser.email}!`);
+        await loadLiveLedger();
+      } catch (err) {
+        showToast(`Authentication failed: ${err.message}`);
+      }
+    }
+  );
+}
+
+function handleProfileClick() {
+  if (!authToken) {
+    openLoginDialog();
+  } else {
+    openDialog(
+      "Signed in user",
+      `Currently authenticated as <b>${escapeHtml(currentUser?.email || "User")}</b> (Role: ${currentUser?.role || activeRole}).`,
+      `<p style="font-size:12px;color:#aab5c2;">To authenticate as a different user or access with other credentials, you can sign out below.</p>`,
+      "Sign out",
+      () => {
+        authToken = null;
+        currentUser = null;
+        localStorage.removeItem("ledgerline_token");
+        localStorage.removeItem("ledgerline_user");
+        dialog.close();
+        updateAuthUI();
+        showToast("Signed out. Switched to preview workspace.");
+        loadLiveLedger();
+      }
+    );
+  }
+}
+
 document.querySelectorAll("[data-view]").forEach((button) => button.addEventListener("click", () => setView(button.dataset.view)));
 document.querySelectorAll(".role-chip").forEach((button) => button.addEventListener("click", () => {
   activeRole = button.dataset.role;
@@ -268,12 +350,15 @@ document.querySelector("#export-button").addEventListener("click", async () => {
     showToast("Reconciliation check completed.");
   }
 });
-document.querySelector("#profile-button").addEventListener("click", () => showToast(`Signed in as ${activeRole}.`));
+document.querySelector("#profile-button").addEventListener("click", handleProfileClick);
+const topAvatarEl = document.querySelector(".top-avatar");
+if (topAvatarEl) topAvatarEl.addEventListener("click", handleProfileClick);
 search.addEventListener("input", () => { renderAccounts(search.value); renderActivity(search.value); });
 document.addEventListener("keydown", (event) => {
   if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") { event.preventDefault(); search.focus(); }
 });
 
+updateAuthUI();
 renderAccounts();
 renderActivity();
 loadLiveLedger();
