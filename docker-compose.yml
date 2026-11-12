@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ledgerline-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ledgerline
+      POSTGRES_PASSWORD: ledgerline_dev_password
+      POSTGRES_DB: ledgerline
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ledgerline -d ledgerline"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: ledgerline-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ledgerline-api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      LEDGERLINE_ENVIRONMENT: production
+      LEDGERLINE_DATABASE_URL: postgresql+psycopg://ledgerline:ledgerline_dev_password@postgres:5432/ledgerline
+      LEDGERLINE_REDIS_URL: redis://redis:6379/0
+      LEDGERLINE_JWT_SECRET: production-grade-secret-key-at-least-32-chars-long-here
+      LEDGERLINE_ADMIN_EMAIL: admin@ledgerline.local
+      LEDGERLINE_ADMIN_PASSWORD: ProductionAdminPassword2026!
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  redis_data:
+

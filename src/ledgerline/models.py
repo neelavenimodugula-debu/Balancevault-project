@@ -93,6 +93,9 @@ class LedgerEntry(Base):
     )
     amount_minor: Mapped[int] = mapped_column(BigInteger)
     balance_after_minor: Mapped[int] = mapped_column(BigInteger)
+    entry_sequence: Mapped[int] = mapped_column(BigInteger, default=0, index=True)
+    prev_hash: Mapped[str] = mapped_column(String(64), default="0" * 64)
+    entry_hash: Mapped[str] = mapped_column(String(64), default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

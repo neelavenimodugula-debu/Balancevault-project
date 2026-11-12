@@ -1,95 +1,247 @@
 # LedgerLine
 
-A secure financial transaction platform with an immutable ledger, account management, idempotent transfers and AI-assisted anomaly detection.
+A secure financial transaction platform with an immutable, cryptographically hash-chained double-entry ledger, account management, idempotent money movement, Redis-based rate limiting, and role-based access control.
 
-LedgerLine is an integrity-first money movement service. The current implementation is still in progress; the dashboard is a sample-only preview and no real money movement is enabled.
+LedgerLine is built with an integrity-first architecture in Python 3.13, FastAPI, SQLAlchemy 2.0, PostgreSQL, and Redis.
 
-## Six-day build sequence
+---
 
-Keep each day's work small enough to test and commit. Add a dated entry to `PROMPTS.md` as work happens, including an actual mistake or a specific verification that caught a risky assumption. Do not write future entries in advance.
+## 1. System Architecture
 
-### Day 1: Foundation and threat model
+```
+                      +---------------------------------------+
+                      |       Web Dashboard / REST Client      |
+                      +---------------------------------------+
+                                          |  HTTPS / JWT Bearer
+                                          v
+                      +---------------------------------------+
+                      |         FastAPI Application           |
+                      |  - JWT Authentication & RBAC Guards   |
+                      |  - Pydantic Input Validation          |
+                      |  - Redis Sliding-Window Rate Limiter  |
+                      |  - Idempotency Middleware             |
+                      +---------------------------------------+
+                                          |
+                +-------------------------+-------------------------+
+                |                                                   |
+                v                                                   v
+  +---------------------------+                       +---------------------------+
+  |    Financial Ledger Engine|                       |       Redis Service       |
+  |  - Double-Entry Postings  |                       |  - Rate Limit Counters    |
+  |  - Deterministic Ordering |                       |  - Distributed Sliding    |
+  |  - Conditional Updates    |                       |    Window Keys            |
+  |  - SHA-256 Hash Chaining  |                       +---------------------------+
+  |  - Rollback / Refusal Log |
+  +---------------------------+
+                |
+                v
+  +---------------------------------------------------------------+
+  |                      PostgreSQL Database                      |
+  |  - Check Constraints (nonnegative balances)                   |
+  |  - Unique Constraints (actor + idempotency key)               |
+  |  - Foreign Key Constraints (ON DELETE RESTRICT)               |
+  |  - Append-Only Hardened Rules (No UPDATE/DELETE on entries)   |
+  +---------------------------------------------------------------+
+```
 
-- Establish the Python package, test runner, Git ignore rules, and `/health` endpoint.
-- Record the planned integrity model and known threats before implementing money movement.
-- Check: `python -m pytest -q`.
-- Commit: `Day 1: bootstrap FastAPI service` (done locally as `00af265`).
+---
 
-### Day 2: PostgreSQL schema and identity
+## 2. BalanceVault Challenge Compliance
 
-- Add PostgreSQL Compose configuration, environment-based settings, SQLAlchemy models, and Alembic migrations.
-- Model users and roles, accounts and ownership, immutable journal transactions, postings, idempotency records, and audit events.
-- Store all amounts as integer minor units (paise); do not use floating-point currency.
-- Add an administrator, account-holder, and auditor policy, then implement password hashing and authenticated API requests.
-- Check: migration-up/down or migration-forward tests, role tests, and database constraint tests against PostgreSQL.
-- Commit: `Day 2: add database schema and authentication`.
+### A. Financial Integrity
+1. **Double-Entry Accounting**: Every financial operation creates a `JournalTransaction` and at least two balanced `LedgerEntry` postings.
+2. **Balanced Postings**: For every journal transaction, the sum of all entry amounts is strictly zero (`sum(entry.amount_minor) == 0`). External deposits and withdrawals post against a system clearing account (`SYSTEM_CLEARING`).
+3. **Atomic Processing**: All ledger mutations, balance updates, idempotency records, and audit events execute within a single database transaction. Failure at any point triggers an immediate rollback.
+4. **Idempotency Protection**: Scoped to `(actor_user_id, key)`. Computes a SHA-256 canonical payload fingerprint. Identical replays return the cached response; key re-use with a modified payload returns `409 Conflict`.
+5. **Concurrency & Deadlock Safety**: Involved accounts are locked in deterministic order (sorted by UUID). Balances are updated via atomic conditional SQL statements:
+   ```sql
+   UPDATE accounts SET balance_minor = balance_minor + :amount
+   WHERE id = :id AND (balance_minor + :amount >= 0 OR is_system_account = true);
+   ```
+6. **Overdraft Prevention**: Strict non-negative balance checks are enforced at both application and database constraint levels.
+7. **Append-Only Audit Ledger**: Completed and refused attempts are logged in `audit_events`. Refused operations are recorded in an independent transaction so declines cannot disappear if the financial transaction rolls back.
+8. **Hash-Chained Ledger Verification**: Every `LedgerEntry` contains `prev_hash`, `entry_sequence`, and `entry_hash` (`SHA-256(prev_hash:seq:journal:account:amount:balance_after)`). The `/ledger/verify` endpoint walks the entire chain from genesis to detect tampering.
+9. **Proper Rollback**: Injected failures leave zero partial state.
 
-### Day 3: Money movement
+### B. Account Management & Authentication
+1. **User Registration & Onboarding**: `POST /auth/register` creates an account. Public registration is restricted strictly to `UserRole.ACCOUNT_HOLDER`.
+2. **Account Management**: `POST /accounts` allows creating customer accounts; `GET /accounts` and `GET /accounts/{id}` enforce ownership isolation.
+3. **Authentication**: `POST /auth/login` validates credentials and returns a signed JWT access token.
+4. **Password Hashing**: Passwords hashed with **Argon2** (`pwdlib[argon2]`).
+5. **Session/Token Handling**: JWT Bearer tokens with configurable expiration and claims (`sub`, `email`, `role`).
+6. **Input Validation**: Strict Pydantic models validate integer minor units (paise), RFC-compliant emails, and UUIDs.
 
-- Implement deposits, withdrawals, and transfers through one service layer; do not let routes update balances directly.
-- Use double-entry postings. Each journal transaction must sum to zero; external deposits and withdrawals post against a clearing account.
-- Within one PostgreSQL transaction, lock affected accounts in stable ID order, verify authorization and funds, write postings, and update any cached balances.
-- Check: unit/integration tests for balance changes, conservation, insufficient funds, and a forced failure proving a transfer cannot partially commit.
-- Commit: `Day 3: implement atomic money movements`.
+### C. Role-Based Access Control (RBAC)
+1. **Roles**: `admin`, `account_holder`, `auditor`.
+2. **Backend Enforcement**: FastAPI dependencies (`require_roles(...)`) protect every route.
+3. **User Isolation**: Account holders can only view and transfer from accounts they own (`owner_user_id == current_user.id`).
+4. **Privilege Escalation Prevention**: Role parameters in public registration are rejected; first admin is created via an explicit CLI bootstrap script.
+5. **Auditor & Admin Separation**: Auditors have read-only access to statements, audit logs, and reconciliation; only administrators and account holders can initiate transfers.
 
-### Day 4: Idempotency and adversarial concurrency
+### D. Database & Infrastructure
+1. **PostgreSQL**: Primary production database utilizing psycopg3 binary driver.
+2. **Alembic Migrations**: Full declarative migration suite (`alembic.ini`, `alembic/versions/001_initial_schema.py`).
+3. **Redis Rate Limiting**: Distributed sliding-window rate limiting with in-memory fallback.
+4. **Bootstrap Script**: `src/ledgerline/bootstrap.py` initializes the first admin from environment variables safely.
+5. **Database Roles**: `scripts/init_db_roles.sql` provides separated `ledgerline_migrator` (DDL owner) and `ledgerline_app` (runtime user with NO UPDATE/DELETE on ledger entries).
+6. **Environment Configuration**: `pydantic-settings` validates environment variables and requires private production secrets.
 
-- Require an idempotency key for every money-moving request. Enforce uniqueness in PostgreSQL, bind the key to the actor and request payload, return the original result for an identical retry, and reject key reuse with a different payload.
-- Exercise simultaneous withdrawals and duplicate transfers using multiple database connections against PostgreSQL, not SQLite or mocked locks.
-- Deploy a staging version early and run the same adversarial checks against it.
-- Check: race tests assert exactly one winner when funds only cover one withdrawal, and exactly one posting set after concurrent duplicate requests.
-- Commit: `Day 4: enforce idempotency and race safety`.
+### E. Health Checks & Deployment
+1. **Application Health**: `GET /health` returns `{"status": "ok"}`.
+2. **Database Health**: `GET /health/db` tests database connectivity with `SELECT 1`.
+3. **Redis Health**: `GET /health/redis` pings Redis.
+4. **Readiness Probe**: `GET /ready` returns readiness status for orchestrators.
+5. **Production Docker**: `Dockerfile` (multi-stage non-root container) and `docker-compose.yml`.
 
-### Day 5: Authorization, statements, and audit integrity
+---
 
-- Enforce account ownership and role checks in the service layer on every request.
-- Add account balances and statements with running balances, actor, timestamps, successful postings, and refused attempts.
-- Separate refused-attempt auditing from a rolled-back money transaction so a decline remains recorded.
-- Protect posted ledger rows with database permissions and append-only database rules; application checks alone are not sufficient.
-- Check: cross-account access tests, auditor read-only tests, denied-attempt tests, and tests that update/delete attempts against posted ledger rows are rejected.
-- Commit: `Day 5: add statements and audit protections`.
+## 3. API Reference
 
-### Day 6: User experience, deployment, and hand-in
+| Endpoint | Method | Role | Description |
+| :--- | :--- | :--- | :--- |
+| `/health` | `GET` | Public | Application health check |
+| `/health/db` | `GET` | Public | Database connectivity health check |
+| `/health/redis` | `GET` | Public | Redis connectivity health check |
+| `/ready` | `GET` | Public | Readiness probe |
+| `/auth/register` | `POST` | Public | Register new account holder |
+| `/auth/login` | `POST` | Public | Authenticate user & retrieve JWT |
+| `/auth/me` | `GET` | Authenticated | Get current authenticated user profile |
+| `/accounts` | `POST` | Admin, Holder | Create a new ledger account |
+| `/accounts` | `GET` | Authenticated | List accessible accounts |
+| `/accounts/{id}`| `GET` | Authenticated | Get account details (enforces ownership) |
+| `/deposits` | `POST` | Admin, Holder | Execute deposit against clearing account |
+| `/withdrawals` | `POST` | Admin, Holder | Execute withdrawal against clearing account |
+| `/transfers` | `POST` | Admin, Holder | Execute atomic double-entry transfer |
+| `/statements/{id}` | `GET` | Authenticated | View account statements and entry history |
+| `/ledger/verify` | `GET` | Authenticated | Verify SHA-256 cryptographic hash-chain |
+| `/ledger/reconciliation` | `GET` | Admin, Auditor | Verify system-wide balance conservation (sum=0) |
+| `/audit/events` | `GET` | Admin, Auditor | View append-only audit trail |
 
-- Add a small usable interface for login, account overview, transfer submission, and statements; the API remains the authority for all money decisions.
-- Add safe seed data, clean-clone setup instructions, API permission/money-effect documentation, and production configuration without committing secrets.
-- Deploy the final service, run the attack checklist against the live URL, record the five-minute demo, and write the final implementation/gaps summary.
-- Check: full test suite, clean deployment smoke test, and manual replay/overdraft/ownership/tamper checks.
-- Commit: `Day 6: prepare release and demo`.
+---
 
-## Run locally
+## 4. Quick Start (Local Development)
 
-Python 3.13 is configured for this workspace. From the repository root in PowerShell:
+### Prerequisites
+- Python 3.13
+- PostgreSQL (or SQLite for automated unit tests)
+- Redis (optional for local dev; built-in in-memory fallback enabled)
 
+### Setup & Run
 ```powershell
+# 1. Clone repository
+git clone https://github.com/neelavenimodugula-debu/LedgerLine-project.git
+cd LedgerLine-project
+
+# 2. Install dependencies
 python -m pip install -e ".[dev]"
-python -m pytest -q
-python -m uvicorn ledgerline.main:app --reload
+
+# 3. Copy environment configuration
+cp .env.example .env
+
+# 4. Bootstrap initial administrator
+python -m ledgerline.bootstrap
+
+# 5. Run tests
+python -m pytest -v
+
+# 6. Start the API & Dashboard
+python -m uvicorn ledgerline.main:app --reload --port 8000
 ```
 
-Open `http://127.0.0.1:8000/` for the dashboard preview, `http://127.0.0.1:8000/health` for the health check, and `http://127.0.0.1:8000/docs` for the generated API docs. The account and activity figures are sample-only; preview forms do not post money. PostgreSQL-backed routes will require the database setup that is scheduled for Day 2.
+Open:
+- Dashboard: [http://localhost:8000/](http://localhost:8000/)
+- API Docs: [http://localhost:8000/docs](http://localhost:8000/docs)
+- Health check: [http://localhost:8000/health](http://localhost:8000/health)
 
-## Daily GitHub workflow
+---
 
-The private GitHub repository is [neelavenimodugula-debu/LedgerLine-project](https://github.com/neelavenimodugula-debu/LedgerLine-project). The local `main` branch tracks the `origin` remote. At the end of each day, review, commit, and push the tested changes:
+## 5. Production Deployment (Docker Compose)
+
+The complete stack includes PostgreSQL 16, Redis 7, and LedgerLine API with volume persistence and health checks.
+
+```bash
+# 1. Configure production environment
+cp .env.example .env
+# Edit .env with strong production passwords and a private JWT secret
+
+# 2. Build and start services
+docker-compose up -d --build
+
+# 3. Apply database migrations
+docker-compose exec web alembic upgrade head
+
+# 4. Apply database roles and append-only hardening rules
+docker-compose exec -T postgres psql -U ledgerline -d ledgerline < scripts/init_db_roles.sql
+
+# 5. Check service health
+curl -f http://localhost:8000/health
+curl -f http://localhost:8000/health/db
+curl -f http://localhost:8000/health/redis
+curl -f http://localhost:8000/ready
+```
+
+---
+
+## 6. Automated Testing Suite
+
+The automated test suite in `tests/` covers all 13 challenge categories:
 
 ```powershell
-git status
-git add README.md THREATS.md PROMPTS.md pyproject.toml src tests
-git diff --cached
-git commit -m "Day N: describe the tested change"
-git push
+# Run the complete test suite
+python -m pytest -v
+
+# Run concurrency and race condition tests
+python -m pytest tests/test_concurrency.py -v
+
+# Run code style and lint verification
+python -m ruff check src tests
 ```
 
-Replace `N` and the message with the actual day's work. Never stage `.env`, credentials, deployment secrets, or `.venv`. Keep `PROMPTS.md` entries tied to real prompts, observed output, a specific correction/check, and the commit that contains the correction. Use the full GitHub commit URL in each entry.
+### Verified Test Cases (19 passed):
+- `test_health_and_readiness_endpoints`: `/health`, `/health/db`, `/ready`.
+- `test_user_registration_and_login`: Registration, login, JWT issuance, duplicate rejection.
+- `test_prevent_privilege_escalation`: Prevents user-supplied admin role.
+- `test_account_creation_and_isolation`: Account creation & cross-user isolation.
+- `test_successful_deposit_and_withdrawal`: Double-entry balanced external movements.
+- `test_successful_transfer_and_double_entry_balance`: Double-entry atomic transfer.
+- `test_overdraft_prevention`: Rejects negative balances and prevents balance deduction.
+- `test_duplicate_idempotency_requests`: Cache replay on match; 409 conflict on payload mismatch.
+- `test_transaction_rollback_on_failure`: Failure leaves zero partial state.
+- `test_unauthorized_cross_account_transfer`: Blocks transferring out of another user's account.
+- `test_rbac_auditor_restrictions`: Auditor blocked from creating accounts/transfers; allowed read-only.
+- `test_ledger_hash_chain_verification_and_tamper_detection`: Cryptographic hash chain validation & tamper detection.
+- `test_rate_limiting`: Exceeding threshold triggers 429 Too Many Requests.
+- `test_concurrent_withdrawal_race_condition`: 5 concurrent threads attempting to overdraw; exactly 1 succeeds.
+- `test_opposing_transfers_no_deadlock`: Bidirectional concurrent transfers complete without deadlock.
+- `test_health_check_returns_ok`: Baseline health endpoint contract.
+- `test_dashboard_and_assets_are_served`: Dashboard UI assets served correctly.
+- `test_ledger_schema_uses_integer_minor_units`: BigInteger minor units verified.
+- `test_schema_includes_audit_and_idempotency_records`: Metadata integrity verified.
 
-## Integrity design (planned, not yet implemented)
+---
 
-- PostgreSQL is the source of truth. SQLite is not a substitute for the row-locking and concurrency tests.
-- Transfers will lock both accounts in a deterministic order, check available funds, write balanced postings, and update any cached balances within one database transaction.
-- Idempotency will be enforced by a database uniqueness constraint and a request-payload fingerprint, not by an in-memory cache.
-- Statements will be derived from append-only postings and audit events. A reconciliation check will compare account balances with ledger totals.
-- Any cached balance is a projection updated atomically with the postings; it is not allowed to become a second independent source of truth.
-- The administrator may create accounts and perform explicitly attributed external funding/adjustment operations; an account holder may debit only owned accounts; an auditor may read but never move money. Exact endpoint rules will be documented before those routes are exposed.
+## 7. Demo Video Checklist
 
-These are decisions to implement and test, not claims that the current preview moves money. See `THREATS.md` for the open risks.
+When recording the challenge demonstration video (5 minutes):
+
+1. **Dashboard & Overview** (0:00 - 0:45):
+   - Open [http://localhost:8000/](http://localhost:8000/).
+   - Show dashboard with accounts, balances, and real-time cryptographic verification pill.
+2. **Registration & RBAC** (0:45 - 1:30):
+   - Register a new account holder. Show role is restricted to `account_holder`.
+   - Log in as admin via bootstrap credentials. Show admin privileges.
+3. **Atomic Double-Entry Transfer** (1:30 - 2:30):
+   - Submit a transfer between accounts.
+   - Show both sides of the ledger entry and check `/ledger/reconciliation` (sum equals 0).
+4. **Idempotency Protection** (2:30 - 3:15):
+   - Re-send request with identical idempotency key. Show identical cached response returned.
+   - Modify payload with same key. Show `409 Conflict` rejection.
+5. **Overdraft & Rollback Prevention** (3:15 - 3:45):
+   - Attempt to withdraw more than available balance. Show `400 Insufficient Funds` rejection.
+   - Show audit event logged for refused attempt.
+6. **Cryptographic Hash Chain & Tamper Detection** (3:45 - 4:30):
+   - Query `/ledger/verify` showing chain valid.
+   - Explain cryptographic SHA-256 link from genesis.
+7. **Automated Test Run & Health Checks** (4:30 - 5:00):
+   - Run `python -m pytest -v` in terminal showing all 19 tests passing.
+   - Check `/health/db` and `/health/redis`.

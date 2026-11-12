@@ -14,12 +14,21 @@ class Settings(BaseSettings):
     database_url: str = (
         "postgresql+psycopg://ledgerline:ledgerline_dev@localhost:5432/ledgerline"
     )
+    redis_url: str = "redis://localhost:6379/0"
     jwt_secret: SecretStr = SecretStr("local-development-secret-change-before-deploy")
     token_expiry_minutes: int = 30
     environment: str = "development"
+    rate_limit_per_minute: int = 60
+    admin_email: str = "admin@ledgerline.local"
+    admin_password: SecretStr = SecretStr("AdminInitialPass2026!")
+    clearing_account_name: str = "SYSTEM_CLEARING"
 
     @model_validator(mode="after")
-    def require_production_secret(self) -> "Settings":
+    def validate_and_normalize(self) -> "Settings":
+        if self.database_url.startswith("postgresql://"):
+            self.database_url = self.database_url.replace(
+                "postgresql://", "postgresql+psycopg://", 1
+            )
         if self.environment == "production" and self.jwt_secret.get_secret_value().startswith(
             "local-development-"
         ):

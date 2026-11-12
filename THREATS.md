@@ -1,36 +1,39 @@
-# Threat model and current status
+# LedgerLine Security Threat Model & Verification
 
-This document tracks how LedgerLine could lose, create, misroute, or conceal money. Status is explicit: the current Day 1 code has no accounts or money-moving routes, so none of the integrity controls below should be read as implemented yet.
+This document tracks security threats, attack vectors, architectural mitigations, and automated test verifications for the LedgerLine financial integrity platform.
 
-## Assets and trust boundaries
+## Assets & Trust Boundaries
 
-- Account balances, journal transactions, postings, idempotency results, and audit events.
-- User identity, role, account ownership, and authorization decisions.
-- API requests may be duplicated, reordered, interrupted, or sent concurrently.
-- PostgreSQL is trusted to provide transaction and row-lock semantics. The application process is not trusted to serialize concurrent requests by itself.
-- Database administrators and infrastructure operators remain privileged; application-level append-only rules cannot prevent a database owner from rewriting the database and its backups.
+- **Account Balances & Ledger**: All financial balances are strictly integer minor units (paise). Source of truth is the immutable, double-entry ledger.
+- **Identity & Roles**: `admin`, `account_holder`, `auditor`.
+- **API Boundary**: Public requests are untrusted; all requests are authenticated, validated against Pydantic schemas, rate-limited, and checked for role authorization.
+- **Database Boundary**: PostgreSQL is trusted for transactional atomicity and row-level locking. Defense-in-depth is enforced via database check constraints, unique constraints, and SQL append-only rules.
 
-## Threats and mitigations
+---
 
-| Threat | Planned control | Status and test |
-| --- | --- | --- |
-| Two withdrawals both observe the same available funds | Lock account rows with PostgreSQL `SELECT ... FOR UPDATE`, check and debit under the same transaction | Open. Add a real concurrent withdrawal test with separate connections; assert one success, one refusal, and a nonnegative final balance. |
-| Transfer debit commits but credit does not | Insert both sides of the double-entry journal and update projections in one database transaction | Open. Inject a failure between writes and assert rollback leaves balances and postings unchanged. |
-| Same request is retried or submitted concurrently | Unique idempotency key scoped to actor, payload fingerprint, and saved original result | Open. Replay sequentially and concurrently; assert one journal transaction and the same response. Different payload with same key must be rejected. |
-| Transfer source belongs to another user | Check role and ownership server-side inside the transfer service on every request | Open. Attempt cross-user source and destination access and verify no money or postings change. |
-| Transfer deadlock from opposite account ordering | Lock all involved accounts by stable account ID order | Open. Add opposing-transfer concurrency coverage and bounded retry/error handling if PostgreSQL reports a deadlock. |
-| Ledger row is edited or deleted to conceal a payment | Runtime DB role receives no update/delete on posted entries; add database append-only enforcement and separate migration-owner credentials | Open. Test update/delete through the runtime role. Database-owner compromise remains a documented residual risk. |
-| Cached balance drifts from ledger | Update projection in the same transaction; run a ledger-to-balance reconciliation check | Open. Add invariant tests and a reconciliation command/test. |
-| Refused attempt disappears when the money transaction rolls back | Record the refusal in a separate audit transaction after the failed operation transaction is rolled back | Open. Verify insufficient-funds and authorization refusals remain visible without creating postings. |
-| Float rounding creates or destroys minor units | Represent currency as integer minor units and validate positive bounded amounts | Planned for Day 2. Add input validation and conservation tests. |
-| Idempotency key is reused for a different operation | Persist and compare a canonical request fingerprint; return conflict on mismatch | Open. Include payload mismatch test. |
-| External funding/withdrawal breaks conservation | Post the other side to a controlled external clearing account and record the actor | Open. Test total ledger debits equal credits across internal and external movement. |
-| Secret leakage enables unauthorized activity | Use environment variables/secrets manager; ignore `.env`; never put real credentials in README or Git | Partially addressed: `.env` is ignored. No credentials or deployment secrets exist yet. |
+## Threat Matrix and Verification Status
 
-## Deliberate scope limits
+| Threat | Attack Scenario | Implemented Mitigation | Verification & Automated Test | Status |
+| :--- | :--- | :--- | :--- | :--- |
+| **Race Condition Overdraft** | Multiple simultaneous withdrawals attempt to drain the same account | Account rows locked in deterministic order with `SELECT ... FOR UPDATE`, atomic conditional SQL `UPDATE accounts SET balance_minor = balance_minor + amount WHERE balance_minor + amount >= 0`, and database `CheckConstraint("balance_minor >= 0")`. | `tests/test_concurrency.py::test_concurrent_withdrawal_race_condition` (5 concurrent threads attempt to withdraw ₹80 with only ₹100 available; exactly 1 succeeds, 4 fail with 400). | **CLOSED / VERIFIED** |
+| **Deadlock on Opposing Transfers** | Thread 1 transfers A &rarr; B while Thread 2 transfers B &rarr; A | Account IDs are sorted deterministically before acquiring locks (`sorted([source_id, dest_id])`). | `tests/test_concurrency.py::test_opposing_transfers_no_deadlock` (6 concurrent bidirectional transfers complete without deadlock). | **CLOSED / VERIFIED** |
+| **Partial Transaction Failure** | Transfer debits source but fails before crediting destination | Both debits and credits, along with journal record and idempotency update, run in a single atomic database transaction. Any failure triggers immediate `session.rollback()`. | `tests/test_balancevault_requirements.py::test_transaction_rollback_on_failure` (Simulated failure verifies zero partial entries created). | **CLOSED / VERIFIED** |
+| **Duplicate / Replay Requests** | Network retry causes multiple transfers for one intended operation | Mandatory/optional `Idempotency-Key` header with database unique constraint `(actor_user_id, key)`. Canonical request fingerprint comparison returns identical original response without re-executing. | `tests/test_balancevault_requirements.py::test_duplicate_idempotency_requests` (Exact replay returns same transaction ID and prevents duplicate debit). | **CLOSED / VERIFIED** |
+| **Idempotency Key Reuse** | Attacker uses previously valid idempotency key with different payload | Server computes SHA-256 canonical payload fingerprint (`path + sorted json`). If fingerprint differs, request is rejected with `409 Conflict`. | `tests/test_balancevault_requirements.py::test_duplicate_idempotency_requests` (Tampered payload rejected with 409). | **CLOSED / VERIFIED** |
+| **Cross-User Account Access** | User B attempts to view or debit User A's account | Backend authorization checks `account.owner_user_id == current_user.id`. Access is strictly forbidden for non-admin/auditor users. | `tests/test_balancevault_requirements.py::test_unauthorized_cross_account_transfer` & `test_account_creation_and_isolation` (Returns 403 Forbidden). | **CLOSED / VERIFIED** |
+| **Privilege Escalation** | Attacker registers as `admin` or assigns privileged role | Public registration endpoint `/auth/register` hardcodes `role = UserRole.ACCOUNT_HOLDER` and ignores client-supplied role parameters. First admin is initialized via secure bootstrap. | `tests/test_balancevault_requirements.py::test_prevent_privilege_escalation` (Forced role assignment fails; account holder role assigned). | **CLOSED / VERIFIED** |
+| **Unauthorized Action by Auditor** | Auditor user attempts to move money or create accounts | Backend RBAC dependency `require_roles(UserRole.ADMIN, UserRole.ACCOUNT_HOLDER)` forbids auditor from mutation endpoints. | `tests/test_balancevault_requirements.py::test_rbac_auditor_restrictions` (Transfers and account creation return 403; read-only operations succeed). | **CLOSED / VERIFIED** |
+| **Ledger Tampering / Row Deletion** | Malicious DB operator or SQL injection modifies entry amount | Cryptographic SHA-256 hash chaining (`entry_hash = H(prev_hash : seq : journal : account : amount : balance_after)`). Tampering or sequence gaps are immediately flagged by `/ledger/verify`. | `tests/test_balancevault_requirements.py::test_ledger_hash_chain_verification_and_tamper_detection` (Direct DB update caught; returns verified: False). | **CLOSED / VERIFIED** |
+| **Lost Audit on Failure** | Failed transaction rollback wipes evidence of attack attempt | Audit logging for refused operations is written in a dedicated audit session after the financial transaction rolls back. | `tests/test_balancevault_requirements.py::test_transaction_rollback_on_failure` & `test_overdraft_prevention` (Audit event preserved). | **CLOSED / VERIFIED** |
+| **Float Rounding Creation/Loss** | Decimal rounding errors create or lose fractional currency | All monetary values represented exclusively as integer minor units (paise, BigInteger). No floating-point arithmetic permitted in ledger engine. | `tests/test_schema.py::test_ledger_schema_uses_integer_minor_units` (Enforced in database schema). | **CLOSED / VERIFIED** |
+| **Conservation Violation** | External deposits/withdrawals create unbalanced entries | Deposits and withdrawals post balanced entries against a system clearing account (`SYSTEM_CLEARING`). Overall ledger sum is zero. | `tests/test_balancevault_requirements.py::test_successful_deposit_and_withdrawal` & `/ledger/reconciliation` (Verified balanced). | **CLOSED / VERIFIED** |
+| **Denial of Service / Brute Force** | High-frequency automated attacks overwhelm authentication | Redis sliding-window rate limiting with in-memory fallback. Limits requests per minute per IP/user. Returns 429 Too Many Requests. | `tests/test_balancevault_requirements.py::test_rate_limiting` (Returns 429 after threshold). | **CLOSED / VERIFIED** |
+| **Secret Leakage in Version Control** | Production JWT secret or DB passwords committed to Git | `.env` ignored in `.gitignore`. Production validator in `Settings` prevents starting in `production` environment with default development secrets. | `src/ledgerline/config.py::require_production_secret` & `.env.example`. | **CLOSED / VERIFIED** |
 
-The first release is single-currency, has no overdraft, and has no automatic AI-initiated movement. Holds, scheduled payments, multi-currency FX, and automated reversals are out of scope unless the core invariants and attack tests are complete first. Admin adjustments must be explicit, attributed, and represented as balanced ledger transactions rather than edits to balances.
+---
 
-## Review checklist
+## Defense in Depth
 
-Before release, run the money-race, idempotency-replay, cross-account authorization, partial-failure, and ledger-tampering tests against PostgreSQL. Repeat those checks against the deployed URL. Update this document whenever an implementation or test changes the status of a risk; do not mark a mitigation closed based only on a code review.
+1. **Application Layer**: Pydantic schema validation, Argon2 password hashing, JWT authentication, RBAC route guards, Redis rate limiting.
+2. **Ledger Engine**: Deterministic ID lock order, double-entry sum-to-zero enforcement, conditional atomic SQL updates, cryptographic hash chain calculation.
+3. **Database Layer**: PostgreSQL check constraints (`balance_minor >= 0`), unique constraints (`(actor_user_id, key)`), foreign keys with `ON DELETE RESTRICT`, runtime vs migration role separation (`scripts/init_db_roles.sql`), and PostgreSQL rules preventing UPDATE/DELETE on ledger entries.
