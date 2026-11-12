@@ -165,8 +165,8 @@ def readiness_check(session: Session = Depends(get_session)) -> dict[str, str]:
         )
 
     settings = get_settings()
-    if settings.environment.lower() == "production":
-        ok, message = check_redis_connection()
+    ok, message = check_redis_connection()
+    if settings.environment.lower() == "production" and settings.strict_redis:
         if not ok:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -174,7 +174,11 @@ def readiness_check(session: Session = Depends(get_session)) -> dict[str, str]:
             )
         return {"status": "ready", "database": "connected", "redis": "connected"}
 
-    return {"status": "ready", "database": "connected"}
+    return {
+        "status": "ready",
+        "database": "connected",
+        "redis": "connected" if ok else f"unavailable ({message})",
+    }
 
 
 # --- Authentication Endpoints ---

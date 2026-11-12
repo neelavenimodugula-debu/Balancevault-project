@@ -1,3 +1,4 @@
+import logging
 import time
 from collections import defaultdict
 
@@ -5,6 +6,8 @@ import redis
 from fastapi import HTTPException, Request, status
 
 from ledgerline.config import get_settings
+
+logger = logging.getLogger(__name__)
 
 _redis_client: redis.Redis | None = None
 _memory_counters: dict[str, list[float]] = defaultdict(list)
@@ -56,6 +59,7 @@ def rate_limiter(max_requests: int | None = None, window_seconds: int = 60):
         key_identifier = f"rate_limit:{user_id or client_host}"
         current_time = time.time()
         is_production = settings.environment.lower() == "production"
+        strict_redis = settings.strict_redis and is_production
 
         # Try Redis only if not currently in connection-failure cooldown
         if current_time - _last_redis_failure > 10.0:
@@ -82,19 +86,23 @@ def rate_limiter(max_requests: int | None = None, window_seconds: int = 60):
                 raise
             except (redis.ConnectionError, redis.TimeoutError, redis.RedisError) as exc:
                 _last_redis_failure = current_time
-                if is_production:
+                if strict_redis:
                     raise HTTPException(
                         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                         detail="Rate limiting backend unavailable: Production configuration requires a connected Redis instance and does not permit unshared in-memory rate limiting.",
                     ) from exc
+                logger.warning(
+                    "Redis rate limiting unavailable (%s). Falling back to process in-memory sliding window. Set LEDGERLINE_STRICT_REDIS=true to enforce strict Redis requirement.",
+                    exc,
+                )
 
-        if is_production:
+        if strict_redis:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Rate limiting backend unavailable: Production configuration requires a connected Redis instance and does not permit unshared in-memory rate limiting.",
             )
 
-        # In-memory sliding window fallback (strictly for development and automated test environments)
+        # In-memory sliding window fallback
         timestamps = _memory_counters[key_identifier]
         window_start = current_time - window_seconds
         _memory_counters[key_identifier] = [t for t in timestamps if t > window_start]

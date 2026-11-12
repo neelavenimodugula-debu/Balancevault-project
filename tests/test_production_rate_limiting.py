@@ -9,12 +9,14 @@ from ledgerline.rate_limit import reset_rate_limit_state
 
 
 def test_production_rejects_silent_in_memory_fallback():
-    """In production mode, if Redis is unavailable, requests must fail with 503 instead of silently using in-memory rate limiting."""
+    """In production mode with strict Redis enabled, if Redis is unavailable, requests must fail with 503 instead of silently using in-memory rate limiting."""
     reset_rate_limit_state()
     settings = get_settings()
     original_env = settings.environment
+    original_strict = settings.strict_redis
     try:
         settings.environment = "production"
+        settings.strict_redis = True
         client = TestClient(app)
 
         with patch("ledgerline.rate_limit.get_redis_client") as mock_redis:
@@ -31,6 +33,35 @@ def test_production_rejects_silent_in_memory_fallback():
             assert "Rate limiting backend unavailable" in resp.json()["detail"]
     finally:
         settings.environment = original_env
+        settings.strict_redis = original_strict
+        reset_rate_limit_state()
+
+
+def test_production_graceful_fallback_when_strict_disabled():
+    """In production mode with strict_redis=False, if Redis is unprovisioned, requests gracefully fall back to in-memory rate limiting."""
+    reset_rate_limit_state()
+    settings = get_settings()
+    original_env = settings.environment
+    original_strict = settings.strict_redis
+    try:
+        settings.environment = "production"
+        settings.strict_redis = False
+        client = TestClient(app)
+
+        with patch("ledgerline.rate_limit.get_redis_client") as mock_redis:
+            import redis
+            mock_client = MagicMock()
+            mock_client.pipeline.side_effect = redis.ConnectionError("Redis down")
+            mock_redis.return_value = mock_client
+
+            resp = client.post(
+                "/auth/register",
+                json={"email": "prod_rate_fallback@example.com", "password": "Password123!"},
+            )
+            assert resp.status_code in (status.HTTP_201_CREATED, status.HTTP_400_BAD_REQUEST)
+    finally:
+        settings.environment = original_env
+        settings.strict_redis = original_strict
         reset_rate_limit_state()
 
 

@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     jwt_secret: SecretStr = SecretStr("local-development-secret-change-before-deploy")
     token_expiry_minutes: int = 30
     environment: str = "development"
+    strict_redis: bool = False
     rate_limit_per_minute: int = 60
     admin_email: str = "admin@ledgerline.local"
     admin_password: SecretStr = SecretStr("AdminInitialPass2026!")
