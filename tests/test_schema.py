@@ -1,7 +1,7 @@
 from sqlalchemy import BigInteger
 
-from ledgerline.database import Base
-from ledgerline.models import Account, JournalTransaction, LedgerEntry
+from balancevault.database import Base
+from balancevault.models import Account, JournalTransaction, LedgerEntry
 
 
 def test_ledger_schema_uses_integer_minor_units() -> None:

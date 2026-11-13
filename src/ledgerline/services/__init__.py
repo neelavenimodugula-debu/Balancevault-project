@@ -1,2 +1,0 @@
-# LedgerLine service package
-

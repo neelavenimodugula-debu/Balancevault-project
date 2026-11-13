@@ -8,9 +8,9 @@ from pwdlib import PasswordHash
 from pwdlib.hashers.argon2 import Argon2Hasher
 from sqlalchemy.orm import Session
 
-from ledgerline.config import get_settings
-from ledgerline.database import get_session
-from ledgerline.models import User, UserRole
+from balancevault.config import get_settings
+from balancevault.database import get_session
+from balancevault.models import User, UserRole
 
 password_hasher = PasswordHash((Argon2Hasher(),))
 security = HTTPBearer(auto_error=False)
@@ -72,8 +72,8 @@ def get_current_user(
     token: str | None = None
     if credentials and credentials.credentials:
         token = credentials.credentials
-    elif "ledgerline_access_token" in request.cookies:
-        token = request.cookies["ledgerline_access_token"]
+    elif "balancevault_access_token" in request.cookies:
+        token = request.cookies["balancevault_access_token"]
 
     if not token:
         raise HTTPException(

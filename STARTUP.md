@@ -1,6 +1,6 @@
-# LedgerLine – Complete Startup & Deployment Guide
+# BalanceVault – Complete Startup & Deployment Guide
 
-This guide provides end-to-end instructions for launching, configuring, testing, and deploying **LedgerLine** across local environments, Docker, and Render cloud hosting.
+This guide provides end-to-end instructions for launching, configuring, testing, and deploying **BalanceVault** across local environments, Docker, and Render cloud hosting.
 
 ---
 
@@ -37,10 +37,10 @@ Copy-Item .env.example .env
 python -m alembic upgrade head
 
 # 6. Bootstrap the initial Administrator and system accounts
-python -m ledgerline.bootstrap
+python -m balancevault.bootstrap
 
 # 7. Start the FastAPI application server
-python -m uvicorn ledgerline.main:app --reload --host 127.0.0.1 --port 8000
+python -m uvicorn balancevault.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
 ### Linux / macOS (Bash)
@@ -65,10 +65,10 @@ cp .env.example .env
 alembic upgrade head
 
 # 6. Bootstrap initial administrator
-python -m ledgerline.bootstrap
+python -m balancevault.bootstrap
 
 # 7. Start server
-uvicorn ledgerline.main:app --reload --host 127.0.0.1 --port 8000
+uvicorn balancevault.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
 Once started, access:
@@ -81,15 +81,15 @@ Once started, access:
 
 ## 3. Cloud Deployment on Render
 
-LedgerLine includes a pre-configured `render.yaml` blueprint and a multi-stage production `Dockerfile`.
+BalanceVault includes a pre-configured `render.yaml` blueprint and a multi-stage production `Dockerfile`.
 
 ### Method 1: Deploying via Render Blueprint (`render.yaml`)
 1. In your [Render Dashboard](https://dashboard.render.com/), click **New +** &rarr; **Blueprint**.
 2. Connect your GitHub repository: `https://github.com/neelavenimodugula-debu/Balancevault-project.git`.
 3. Render reads `render.yaml` and provisions:
-   - **`ledgerline-api`** (Python Web Service).
-   - **`ledgerline-redis`** (Managed Redis instance).
-4. Supply your Neon PostgreSQL connection string in the `LEDGERLINE_DATABASE_URL` prompt.
+   - **`balancevault-api`** (Python Web Service).
+   - **`balancevault-redis`** (Managed Redis instance).
+4. Supply your Neon PostgreSQL connection string in the `BALANCEVAULT_DATABASE_URL` prompt.
 5. Click **Apply**.
 
 ### Method 2: Manual Web Service Deployment
@@ -100,30 +100,30 @@ If deploying as a standalone Web Service on Render:
    - **Runtime**: `Python`
    - **Build Command**:
      ```bash
-     pip install --upgrade pip && pip install . && alembic upgrade head && python -m ledgerline.bootstrap
+     pip install --upgrade pip && pip install . && alembic upgrade head && python -m balancevault.bootstrap
      ```
    - **Start Command**:
      ```bash
-     uvicorn ledgerline.main:app --host 0.0.0.0 --port $PORT
+     uvicorn balancevault.main:app --host 0.0.0.0 --port $PORT
      ```
    - **Health Check Path**: `/health`
 4. Add Environment Variables under the **Environment** tab:
    | Key | Value |
    | :--- | :--- |
-   | `LEDGERLINE_ENVIRONMENT` | `production` |
-   | `LEDGERLINE_DATABASE_URL` | `postgresql://neondb_owner:...@ep-ancient-...aws.neon.tech/neondb?sslmode=require` |
-   | `LEDGERLINE_JWT_SECRET` | *(Random 32+ character secret string)* |
-   | `LEDGERLINE_ADMIN_EMAIL` | `admin@gmail.com` |
-   | `LEDGERLINE_ADMIN_PASSWORD` | `Admin@2026` |
-   | `LEDGERLINE_STRICT_REDIS` | `false` *(allows fallback if Redis is unlinked)* |
-   | `LEDGERLINE_REDIS_URL` | `redis://localhost:6379/0` *(or your Render/Upstash Redis URL)* |
-   | `LEDGERLINE_RATE_LIMIT_PER_MINUTE` | `60` |
+   | `BALANCEVAULT_ENVIRONMENT` | `production` |
+   | `BALANCEVAULT_DATABASE_URL` | `postgresql://neondb_owner:...@ep-ancient-...aws.neon.tech/neondb?sslmode=require` |
+   | `BALANCEVAULT_JWT_SECRET` | *(Random 32+ character secret string)* |
+   | `BALANCEVAULT_ADMIN_EMAIL` | `admin@gmail.com` |
+   | `BALANCEVAULT_ADMIN_PASSWORD` | `Admin@2026` |
+   | `BALANCEVAULT_STRICT_REDIS` | `false` *(allows fallback if Redis is unlinked)* |
+   | `BALANCEVAULT_REDIS_URL` | `redis://localhost:6379/0` *(or your Render/Upstash Redis URL)* |
+   | `BALANCEVAULT_RATE_LIMIT_PER_MINUTE` | `60` |
 
 ---
 
 ## 4. Production Docker Deployment
 
-LedgerLine provides a hardened `docker-compose.yml` that boots PostgreSQL 16, Redis 7, and the LedgerLine API container with non-root privileges:
+BalanceVault provides a hardened `docker-compose.yml` that boots PostgreSQL 16, Redis 7, and the BalanceVault API container with non-root privileges:
 
 ```bash
 # 1. Prepare environment configuration
@@ -146,10 +146,10 @@ curl http://localhost:8000/ready
 
 ## 5. Initial Accounts & User Roles
 
-LedgerLine operates with three segregated roles:
+BalanceVault operates with three segregated roles:
 
 ### 1. Administrator (`admin`)
-- **Credentials**: Configured via `LEDGERLINE_ADMIN_EMAIL` and `LEDGERLINE_ADMIN_PASSWORD` during bootstrap (default: `admin@gmail.com` / `Admin@2026`).
+- **Credentials**: Configured via `BALANCEVAULT_ADMIN_EMAIL` and `BALANCEVAULT_ADMIN_PASSWORD` during bootstrap (default: `admin@gmail.com` / `Admin@2026`).
 - **Capabilities**:
   - Full institutional dashboard.
   - Access to all accounts (system clearing and customer accounts).
@@ -163,7 +163,7 @@ LedgerLine operates with three segregated roles:
 - **Provisioning**:
   - **Via UI**: Admin signs in &rarr; visits **User Management** &rarr; clicks **＋ Provision Auditor**.
   - **Via API**: Admin calls `POST /users/auditors` or promotes an existing user via `PATCH /users/{id}/role`.
-  - **Via Bootstrap**: Optional `LEDGERLINE_AUDITOR_EMAIL` and `LEDGERLINE_AUDITOR_PASSWORD`.
+  - **Via Bootstrap**: Optional `BALANCEVAULT_AUDITOR_EMAIL` and `BALANCEVAULT_AUDITOR_PASSWORD`.
 - **Capabilities (Strictly Read-Only)**:
   - Allowed: Inspect all accounts (`/accounts`), view any statement (`/statements/{id}`), audit trail (`/audit/events`), ledger integrity (`/ledger/verify`), reconciliation (`/ledger/reconciliation`).
   - Forbidden: Transfers, deposits, withdrawals, creating accounts, user management (returns `HTTP 403 Forbidden`).
@@ -182,7 +182,7 @@ LedgerLine operates with three segregated roles:
 
 ## 6. Interactive Swagger API Testing (`/docs`)
 
-LedgerLine features an enhanced Swagger UI for testing every endpoint:
+BalanceVault features an enhanced Swagger UI for testing every endpoint:
 
 1. Open `/docs` in your browser.
 2. **Authenticate**:
@@ -202,18 +202,18 @@ LedgerLine features an enhanced Swagger UI for testing every endpoint:
 
 | Variable | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `LEDGERLINE_ENVIRONMENT` | `string` | `development` | Environment mode (`development`, `staging`, `production`) |
-| `LEDGERLINE_DATABASE_URL` | `string` | `postgresql+psycopg://...` | PostgreSQL connection URL with psycopg3 driver |
-| `LEDGERLINE_REDIS_URL` | `string` | `redis://localhost:6379/0` | Redis connection URL (`redis://` or `rediss://` for TLS) |
-| `LEDGERLINE_STRICT_REDIS` | `bool` | `false` | When `true`, rejects with 503 if Redis is unreachable in production. When `false`, falls back to in-memory sliding window with a warning. |
-| `LEDGERLINE_JWT_SECRET` | `secret` | *(dev secret)* | Cryptographic HMAC-SHA256 secret key (minimum 32 characters in production) |
-| `LEDGERLINE_TOKEN_EXPIRY_MINUTES` | `int` | `30` | JWT expiration duration in minutes |
-| `LEDGERLINE_RATE_LIMIT_PER_MINUTE` | `int` | `60` | Maximum requests per minute per IP / authenticated user |
-| `LEDGERLINE_ADMIN_EMAIL` | `string` | `admin@ledgerline.local` | Email address for initial bootstrapped administrator |
-| `LEDGERLINE_ADMIN_PASSWORD` | `secret` | `AdminInitialPass2026!` | Password for initial bootstrapped administrator |
-| `LEDGERLINE_AUDITOR_EMAIL` | `string` | `None` | (Optional) Email address for bootstrapped auditor |
-| `LEDGERLINE_AUDITOR_PASSWORD` | `secret` | `None` | (Optional) Password for bootstrapped auditor |
-| `LEDGERLINE_CLEARING_ACCOUNT_NAME` | `string` | `SYSTEM_CLEARING` | Name of the system clearing account for deposits/withdrawals |
+| `BALANCEVAULT_ENVIRONMENT` | `string` | `development` | Environment mode (`development`, `staging`, `production`) |
+| `BALANCEVAULT_DATABASE_URL` | `string` | `postgresql+psycopg://...` | PostgreSQL connection URL with psycopg3 driver |
+| `BALANCEVAULT_REDIS_URL` | `string` | `redis://localhost:6379/0` | Redis connection URL (`redis://` or `rediss://` for TLS) |
+| `BALANCEVAULT_STRICT_REDIS` | `bool` | `false` | When `true`, rejects with 503 if Redis is unreachable in production. When `false`, falls back to in-memory sliding window with a warning. |
+| `BALANCEVAULT_JWT_SECRET` | `secret` | *(dev secret)* | Cryptographic HMAC-SHA256 secret key (minimum 32 characters in production) |
+| `BALANCEVAULT_TOKEN_EXPIRY_MINUTES` | `int` | `30` | JWT expiration duration in minutes |
+| `BALANCEVAULT_RATE_LIMIT_PER_MINUTE` | `int` | `60` | Maximum requests per minute per IP / authenticated user |
+| `BALANCEVAULT_ADMIN_EMAIL` | `string` | `admin@balancevault.local` | Email address for initial bootstrapped administrator |
+| `BALANCEVAULT_ADMIN_PASSWORD` | `secret` | `AdminInitialPass2026!` | Password for initial bootstrapped administrator |
+| `BALANCEVAULT_AUDITOR_EMAIL` | `string` | `None` | (Optional) Email address for bootstrapped auditor |
+| `BALANCEVAULT_AUDITOR_PASSWORD` | `secret` | `None` | (Optional) Password for bootstrapped auditor |
+| `BALANCEVAULT_CLEARING_ACCOUNT_NAME` | `string` | `SYSTEM_CLEARING` | Name of the system clearing account for deposits/withdrawals |
 
 ---
 

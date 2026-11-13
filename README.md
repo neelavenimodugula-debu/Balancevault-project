@@ -1,8 +1,8 @@
-# LedgerLine
+# BalanceVault
 
 A secure financial transaction platform with an immutable, cryptographically hash-chained double-entry ledger, account management, idempotent money movement, Redis-based rate limiting, and role-based access control.
 
-LedgerLine is built with an integrity-first architecture in Python 3.13, FastAPI, SQLAlchemy 2.0, PostgreSQL, and Redis.
+BalanceVault is built with an integrity-first architecture in Python 3.13, FastAPI, SQLAlchemy 2.0, PostgreSQL, and Redis.
 
 ---
 
@@ -82,8 +82,8 @@ LedgerLine is built with an integrity-first architecture in Python 3.13, FastAPI
 1. **PostgreSQL**: Primary production database utilizing psycopg3 binary driver.
 2. **Alembic Migrations**: Full declarative migration suite (`alembic.ini`, `alembic/versions/001_initial_schema.py`).
 3. **Redis Rate Limiting**: Distributed sliding-window rate limiting with in-memory fallback.
-4. **Bootstrap Script**: `src/ledgerline/bootstrap.py` initializes the first admin from environment variables safely.
-5. **Database Roles**: `scripts/init_db_roles.sql` provides separated `ledgerline_migrator` (DDL owner) and `ledgerline_app` (runtime user with NO UPDATE/DELETE on ledger entries).
+4. **Bootstrap Script**: `src/balancevault/bootstrap.py` initializes the first admin from environment variables safely.
+5. **Database Roles**: `scripts/init_db_roles.sql` provides separated `balancevault_migrator` (DDL owner) and `balancevault_app` (runtime user with NO UPDATE/DELETE on ledger entries).
 6. **Environment Configuration**: `pydantic-settings` validates environment variables and requires private production secrets.
 
 ### E. Health Checks & Deployment
@@ -135,8 +135,8 @@ LedgerLine is built with an integrity-first architecture in Python 3.13, FastAPI
 ### Setup & Run
 ```powershell
 # 1. Clone repository
-git clone https://github.com/neelavenimodugula-debu/LedgerLine-project.git
-cd LedgerLine-project
+git clone https://github.com/neelavenimodugula-debu/Balancevault-project.git
+cd Balancevault-project
 
 # 2. Install dependencies
 python -m pip install -e ".[dev]"
@@ -145,13 +145,13 @@ python -m pip install -e ".[dev]"
 cp .env.example .env
 
 # 4. Bootstrap initial administrator
-python -m ledgerline.bootstrap
+python -m balancevault.bootstrap
 
 # 5. Run tests
 python -m pytest -v
 
 # 6. Start the API & Dashboard
-python -m uvicorn ledgerline.main:app --reload --port 8000
+python -m uvicorn balancevault.main:app --reload --port 8000
 ```
 
 Open:
@@ -163,7 +163,7 @@ Open:
 
 ## 5. Production Deployment (Docker Compose)
 
-The complete stack includes PostgreSQL 16, Redis 7, and LedgerLine API with volume persistence and health checks.
+The complete stack includes PostgreSQL 16, Redis 7, and BalanceVault API with volume persistence and health checks.
 
 ```bash
 # 1. Configure production environment
@@ -177,7 +177,7 @@ docker-compose up -d --build
 docker-compose exec web alembic upgrade head
 
 # 4. Apply database roles and append-only hardening rules
-docker-compose exec -T postgres psql -U ledgerline -d ledgerline < scripts/init_db_roles.sql
+docker-compose exec -T postgres psql -U balancevault -d balancevault < scripts/init_db_roles.sql
 
 # 5. Check service health
 curl -f http://localhost:8000/health
@@ -240,5 +240,5 @@ When recording the challenge demonstration video (5 minutes):
    - Query `/ledger/verify` showing chain valid.
    - Explain cryptographic SHA-256 link from genesis.
 7. **Automated Test Run & Health Checks** (4:30 - 5:00):
-   - Run `python -m pytest -v` in terminal showing all 19 tests passing.
+   - Run `python -m pytest -v` in terminal showing all 30 tests passing.
    - Check `/health/db` and `/health/redis`.

@@ -3,9 +3,9 @@ from unittest.mock import MagicMock, patch
 from fastapi import status
 from fastapi.testclient import TestClient
 
-from ledgerline.config import get_settings
-from ledgerline.main import app
-from ledgerline.rate_limit import reset_rate_limit_state
+from balancevault.config import get_settings
+from balancevault.main import app
+from balancevault.rate_limit import reset_rate_limit_state
 
 
 def test_production_rejects_silent_in_memory_fallback():
@@ -19,7 +19,7 @@ def test_production_rejects_silent_in_memory_fallback():
         settings.strict_redis = True
         client = TestClient(app)
 
-        with patch("ledgerline.rate_limit.get_redis_client") as mock_redis:
+        with patch("balancevault.rate_limit.get_redis_client") as mock_redis:
             import redis
             mock_client = MagicMock()
             mock_client.pipeline.side_effect = redis.ConnectionError("Redis connection refused")
@@ -48,7 +48,7 @@ def test_production_graceful_fallback_when_strict_disabled():
         settings.strict_redis = False
         client = TestClient(app)
 
-        with patch("ledgerline.rate_limit.get_redis_client") as mock_redis:
+        with patch("balancevault.rate_limit.get_redis_client") as mock_redis:
             import redis
             mock_client = MagicMock()
             mock_client.pipeline.side_effect = redis.ConnectionError("Redis down")
@@ -74,7 +74,7 @@ def test_development_allows_in_memory_fallback():
         settings.environment = "development"
         client = TestClient(app)
 
-        with patch("ledgerline.rate_limit.get_redis_client") as mock_redis:
+        with patch("balancevault.rate_limit.get_redis_client") as mock_redis:
             import redis
             mock_client = MagicMock()
             mock_client.pipeline.side_effect = redis.ConnectionError("Redis down")
@@ -141,7 +141,7 @@ def test_multi_instance_redis_rate_limiting():
 
         shared_mock = create_mock_redis()
 
-        with patch("ledgerline.rate_limit.get_redis_client", return_value=shared_mock):
+        with patch("balancevault.rate_limit.get_redis_client", return_value=shared_mock):
             client1 = TestClient(app)
             client2 = TestClient(app)
 

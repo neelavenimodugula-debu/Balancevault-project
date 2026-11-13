@@ -3,25 +3,25 @@ version: '3.8'
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: ledgerline-postgres
+    container_name: balancevault-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ledgerline
-      POSTGRES_PASSWORD: ledgerline_dev_password
-      POSTGRES_DB: ledgerline
+      POSTGRES_USER: balancevault
+      POSTGRES_PASSWORD: balancevault_dev_password
+      POSTGRES_DB: balancevault
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ledgerline -d ledgerline"]
+      test: ["CMD-SHELL", "pg_isready -U balancevault -d balancevault"]
       interval: 5s
       timeout: 5s
       retries: 5
 
   redis:
     image: redis:7-alpine
-    container_name: ledgerline-redis
+    container_name: balancevault-redis
     restart: unless-stopped
     ports:
       - "6379:6379"
@@ -37,17 +37,17 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: ledgerline-api
+    container_name: balancevault-api
     restart: unless-stopped
     ports:
       - "8000:8000"
     environment:
-      LEDGERLINE_ENVIRONMENT: production
-      LEDGERLINE_DATABASE_URL: postgresql+psycopg://ledgerline:ledgerline_dev_password@postgres:5432/ledgerline
-      LEDGERLINE_REDIS_URL: redis://redis:6379/0
-      LEDGERLINE_JWT_SECRET: production-grade-secret-key-at-least-32-chars-long-here
-      LEDGERLINE_ADMIN_EMAIL: admin@ledgerline.local
-      LEDGERLINE_ADMIN_PASSWORD: ProductionAdminPassword2026!
+      BALANCEVAULT_ENVIRONMENT: production
+      BALANCEVAULT_DATABASE_URL: postgresql+psycopg://balancevault:balancevault_dev_password@postgres:5432/balancevault
+      BALANCEVAULT_REDIS_URL: redis://redis:6379/0
+      BALANCEVAULT_JWT_SECRET: production-grade-secret-key-at-least-32-chars-long-here
+      BALANCEVAULT_ADMIN_EMAIL: admin@balancevault.local
+      BALANCEVAULT_ADMIN_PASSWORD: ProductionAdminPassword2026!
     depends_on:
       postgres:
         condition: service_healthy

@@ -1,45 +1,45 @@
 -- ==============================================================================
--- LedgerLine Database Roles, Permissions, and Append-Only Hardening
+-- BalanceVault Database Roles, Permissions, and Append-Only Hardening
 -- ==============================================================================
 
 -- 1. Create Migration Admin Role (DDL Owner)
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'ledgerline_migrator') THEN
-        CREATE ROLE ledgerline_migrator WITH LOGIN PASSWORD 'change_in_production_migrator';
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'balancevault_migrator') THEN
+        CREATE ROLE balancevault_migrator WITH LOGIN PASSWORD 'change_in_production_migrator';
     END IF;
 END $$;
 
 -- 2. Create Application Runtime Role (Least Privilege)
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'ledgerline_app') THEN
-        CREATE ROLE ledgerline_app WITH LOGIN PASSWORD 'change_in_production_app';
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'balancevault_app') THEN
+        CREATE ROLE balancevault_app WITH LOGIN PASSWORD 'change_in_production_app';
     END IF;
 END $$;
 
 -- 3. Grant schema usage
-GRANT USAGE, CREATE ON SCHEMA public TO ledgerline_migrator;
-GRANT USAGE ON SCHEMA public TO ledgerline_app;
+GRANT USAGE, CREATE ON SCHEMA public TO balancevault_migrator;
+GRANT USAGE ON SCHEMA public TO balancevault_app;
 
 -- 4. Set ownership to migrator
-ALTER SCHEMA public OWNER TO ledgerline_migrator;
+ALTER SCHEMA public OWNER TO balancevault_migrator;
 
 -- 5. Grant table-level permissions to application runtime role
 -- Mutable business entities: SELECT, INSERT, UPDATE (no DELETE)
-GRANT SELECT, INSERT, UPDATE ON users TO ledgerline_app;
-GRANT SELECT, INSERT, UPDATE ON accounts TO ledgerline_app;
-GRANT SELECT, INSERT, UPDATE ON idempotency_requests TO ledgerline_app;
+GRANT SELECT, INSERT, UPDATE ON users TO balancevault_app;
+GRANT SELECT, INSERT, UPDATE ON accounts TO balancevault_app;
+GRANT SELECT, INSERT, UPDATE ON idempotency_requests TO balancevault_app;
 
 -- Append-only ledger and audit tables: ONLY SELECT, INSERT (NO UPDATE, NO DELETE)
-GRANT SELECT, INSERT ON journal_transactions TO ledgerline_app;
-GRANT SELECT, INSERT ON ledger_entries TO ledgerline_app;
-GRANT SELECT, INSERT ON audit_events TO ledgerline_app;
+GRANT SELECT, INSERT ON journal_transactions TO balancevault_app;
+GRANT SELECT, INSERT ON ledger_entries TO balancevault_app;
+GRANT SELECT, INSERT ON audit_events TO balancevault_app;
 
 -- Revoke dangerous permissions explicitly from runtime role
-REVOKE UPDATE, DELETE, TRUNCATE ON journal_transactions FROM ledgerline_app;
-REVOKE UPDATE, DELETE, TRUNCATE ON ledger_entries FROM ledgerline_app;
-REVOKE UPDATE, DELETE, TRUNCATE ON audit_events FROM ledgerline_app;
+REVOKE UPDATE, DELETE, TRUNCATE ON journal_transactions FROM balancevault_app;
+REVOKE UPDATE, DELETE, TRUNCATE ON ledger_entries FROM balancevault_app;
+REVOKE UPDATE, DELETE, TRUNCATE ON audit_events FROM balancevault_app;
 
 -- 6. PostgreSQL Append-Only Enforcement Triggers (Defense in Depth)
 -- Explicitly rejects direct UPDATE, DELETE, and TRUNCATE attempts with an unmissable exception

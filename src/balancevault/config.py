@@ -7,12 +7,12 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
-        env_prefix="LEDGERLINE_",
+        env_prefix="BALANCEVAULT_",
         extra="ignore",
     )
 
     database_url: str = (
-        "postgresql+psycopg://ledgerline:ledgerline_dev@localhost:5432/ledgerline"
+        "postgresql+psycopg://balancevault:balancevault_dev@localhost:5432/balancevault"
     )
     redis_url: str = "redis://localhost:6379/0"
     jwt_secret: SecretStr = SecretStr("local-development-secret-change-before-deploy")
@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     environment: str = "development"
     strict_redis: bool = False
     rate_limit_per_minute: int = 60
-    admin_email: str = "admin@ledgerline.local"
+    admin_email: str = "admin@balancevault.local"
     admin_password: SecretStr = SecretStr("AdminInitialPass2026!")
     auditor_email: str | None = None
     auditor_password: SecretStr | None = None
@@ -35,7 +35,7 @@ class Settings(BaseSettings):
         if self.environment == "production" and self.jwt_secret.get_secret_value().startswith(
             "local-development-"
         ):
-            raise ValueError("Set LEDGERLINE_JWT_SECRET to a private production secret")
+            raise ValueError("Set BALANCEVAULT_JWT_SECRET to a private production secret")
         return self
 
 

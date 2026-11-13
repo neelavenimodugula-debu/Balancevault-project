@@ -6,9 +6,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from ledgerline.config import get_settings
-from ledgerline.database import Base, get_session
-from ledgerline.main import app
+from balancevault.config import get_settings
+from balancevault.database import Base, get_session
+from balancevault.main import app
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -20,7 +20,7 @@ def test_engine():
         poolclass=StaticPool,
     )
     Base.metadata.create_all(bind=engine)
-    import ledgerline.database as db_mod
+    import balancevault.database as db_mod
     db_mod.engine = engine
     db_mod.SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
     return engine

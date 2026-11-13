@@ -1,4 +1,4 @@
-let authToken = localStorage.getItem("ledgerline_token") || null;
+let authToken = localStorage.getItem("balancevault_token") || null;
 let currentUser = null;
 let accounts = [];
 let activeView = "accounts";
@@ -171,7 +171,7 @@ async function handleLogout(showNotification = true) {
   } catch (_) {}
   authToken = null;
   currentUser = null;
-  localStorage.removeItem("ledgerline_token");
+  localStorage.removeItem("balancevault_token");
   accounts = [];
   updateAuthUI();
   if (showNotification) showToast("Signed out successfully.");
@@ -217,7 +217,7 @@ function openAuthDialog(defaultTab = "login") {
         </form>
       ` : `
         <h2 class="dialog-title">Create Account</h2>
-        <p class="dialog-copy">Register for LedgerLine access. All public accounts are assigned Account Holder status.</p>
+        <p class="dialog-copy">Register for BalanceVault access. All public accounts are assigned Account Holder status.</p>
         <form id="auth-form" class="form-grid">
           <label class="form-field">
             Full name
@@ -353,7 +353,7 @@ function openAuthDialog(defaultTab = "login") {
           });
 
           authToken = tokenData.access_token;
-          localStorage.setItem("ledgerline_token", authToken);
+          localStorage.setItem("balancevault_token", authToken);
 
           // Retrieve authenticated user profile from GET /auth/me
           currentUser = await apiRequest("/auth/me");
@@ -948,7 +948,7 @@ async function renderUsersPanel() {
 function setView(view) {
   activeView = view;
   const views = {
-    accounts: ["Accounts", "Overview of accounts and system integrity", "Accounts", "Active LedgerLine accounts"],
+    accounts: ["Accounts", "Overview of accounts and system integrity", "Accounts", "Active BalanceVault accounts"],
     transfer: ["Transfer & Fund Movement", "Atomic double-entry fund movements and settlements", "Fund Movement", "Double-entry transactions with idempotency protection"],
     statements: ["Statements", "Review account activity and immutable ledger records", "Account Activity", "Cryptographically chained entries"],
     audit: ["Audit Trail", "Review system authorization, security, and integrity events", "System Audit Log", "Append-only immutable events"],

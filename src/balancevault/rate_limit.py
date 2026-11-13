@@ -5,7 +5,7 @@ from collections import defaultdict
 import redis
 from fastapi import HTTPException, Request, status
 
-from ledgerline.config import get_settings
+from balancevault.config import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -92,7 +92,7 @@ def rate_limiter(max_requests: int | None = None, window_seconds: int = 60):
                         detail="Rate limiting backend unavailable: Production configuration requires a connected Redis instance and does not permit unshared in-memory rate limiting.",
                     ) from exc
                 logger.warning(
-                    "Redis rate limiting unavailable (%s). Falling back to process in-memory sliding window. Set LEDGERLINE_STRICT_REDIS=true to enforce strict Redis requirement.",
+                    "Redis rate limiting unavailable (%s). Falling back to process in-memory sliding window. Set BALANCEVAULT_STRICT_REDIS=true to enforce strict Redis requirement.",
                     exc,
                 )
 

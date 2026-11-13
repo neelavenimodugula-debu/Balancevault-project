@@ -1,6 +1,6 @@
-# LedgerLine Security Threat Model & Verification
+# BalanceVault Security Threat Model & Verification
 
-This document tracks security threats, attack vectors, architectural mitigations, and automated test verifications for the LedgerLine financial integrity platform.
+This document tracks security threats, attack vectors, architectural mitigations, and automated test verifications for the BalanceVault financial integrity platform.
 
 ## Assets & Trust Boundaries
 
@@ -28,7 +28,7 @@ This document tracks security threats, attack vectors, architectural mitigations
 | **Float Rounding Creation/Loss** | Decimal rounding errors create or lose fractional currency | All monetary values represented exclusively as integer minor units (paise, BigInteger). No floating-point arithmetic permitted in ledger engine. | `tests/test_schema.py::test_ledger_schema_uses_integer_minor_units` (Enforced in database schema). | **CLOSED / VERIFIED** |
 | **Conservation Violation** | External deposits/withdrawals create unbalanced entries | Deposits and withdrawals post balanced entries against a system clearing account (`SYSTEM_CLEARING`). Overall ledger sum is zero. | `tests/test_balancevault_requirements.py::test_successful_deposit_and_withdrawal` & `/ledger/reconciliation` (Verified balanced). | **CLOSED / VERIFIED** |
 | **Denial of Service / Brute Force** | High-frequency automated attacks overwhelm authentication | Redis sliding-window rate limiting with in-memory fallback. Limits requests per minute per IP/user. Returns 429 Too Many Requests. | `tests/test_balancevault_requirements.py::test_rate_limiting` (Returns 429 after threshold). | **CLOSED / VERIFIED** |
-| **Secret Leakage in Version Control** | Production JWT secret or DB passwords committed to Git | `.env` ignored in `.gitignore`. Production validator in `Settings` prevents starting in `production` environment with default development secrets. | `src/ledgerline/config.py::require_production_secret` & `.env.example`. | **CLOSED / VERIFIED** |
+| **Secret Leakage in Version Control** | Production JWT secret or DB passwords committed to Git | `.env` ignored in `.gitignore`. Production validator in `Settings` prevents starting in `production` environment with default development secrets. | `src/balancevault/config.py::require_production_secret` & `.env.example`. | **CLOSED / VERIFIED** |
 
 ---
 

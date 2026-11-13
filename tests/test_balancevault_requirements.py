@@ -4,15 +4,15 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from ledgerline.auth import create_access_token, hash_password
-from ledgerline.models import LedgerEntry, User, UserRole
+from balancevault.auth import create_access_token, hash_password
+from balancevault.models import LedgerEntry, User, UserRole
 
 
 @pytest.fixture
 def admin_user(db_session: Session) -> User:
     user = User(
         id=uuid.uuid4(),
-        email=f"admin_{uuid.uuid4().hex[:8]}@ledgerline.local",
+        email=f"admin_{uuid.uuid4().hex[:8]}@balancevault.local",
         password_hash=hash_password("AdminSecurePass2026!"),
         role=UserRole.ADMIN,
         is_active=True,
@@ -357,7 +357,7 @@ def test_ledger_hash_chain_verification_and_tamper_detection(
 
 # 13. Rate Limiting Protection
 def test_rate_limiting(client: TestClient) -> None:
-    from ledgerline.rate_limit import _memory_counters
+    from balancevault.rate_limit import _memory_counters
     _memory_counters.clear()
     # Rapidly call a rate-limited endpoint (limit is 20)
     responses = []

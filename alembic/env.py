@@ -3,9 +3,9 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
-from ledgerline.config import get_settings
-from ledgerline.database import Base
-import ledgerline.models  # noqa: F401
+from balancevault.config import get_settings
+from balancevault.database import Base
+import balancevault.models  # noqa: F401
 
 config = context.config
 

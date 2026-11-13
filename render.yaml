@@ -1,31 +1,31 @@
 services:
   - type: web
-    name: ledgerline-api
+    name: balancevault-api
     runtime: python
-    buildCommand: pip install --upgrade pip && pip install . && alembic upgrade head && python -m ledgerline.bootstrap
-    startCommand: uvicorn ledgerline.main:app --host 0.0.0.0 --port $PORT
+    buildCommand: pip install --upgrade pip && pip install . && alembic upgrade head && python -m balancevault.bootstrap
+    startCommand: uvicorn balancevault.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
     autoDeploy: true
     envVars:
-      - key: LEDGERLINE_ENVIRONMENT
+      - key: BALANCEVAULT_ENVIRONMENT
         value: production
-      - key: LEDGERLINE_DATABASE_URL
+      - key: BALANCEVAULT_DATABASE_URL
         sync: false
-      - key: LEDGERLINE_JWT_SECRET
+      - key: BALANCEVAULT_JWT_SECRET
         generateValue: true
-      - key: LEDGERLINE_REDIS_URL
+      - key: BALANCEVAULT_REDIS_URL
         fromRedis:
-          name: ledgerline-redis
+          name: balancevault-redis
           property: connectionString
-      - key: LEDGERLINE_RATE_LIMIT_PER_MINUTE
+      - key: BALANCEVAULT_RATE_LIMIT_PER_MINUTE
         value: "60"
-      - key: LEDGERLINE_ADMIN_EMAIL
+      - key: BALANCEVAULT_ADMIN_EMAIL
         value: admin@gmail.com
-      - key: LEDGERLINE_ADMIN_PASSWORD
+      - key: BALANCEVAULT_ADMIN_PASSWORD
         sync: false
 
   - type: redis
-    name: ledgerline-redis
+    name: balancevault-redis
     plan: free
     ipAllowList: []
 

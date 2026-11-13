@@ -3,10 +3,10 @@ from uuid import uuid4
 
 from sqlalchemy.orm import Session
 
-from ledgerline.auth import hash_password
-from ledgerline.config import get_settings
-from ledgerline.database import SessionLocal, engine
-from ledgerline.models import Account, Base, User, UserRole
+from balancevault.auth import hash_password
+from balancevault.config import get_settings
+from balancevault.database import SessionLocal, engine
+from balancevault.models import Account, Base, User, UserRole
 
 
 def bootstrap_first_admin(session: Session | None = None) -> User | None:
@@ -34,7 +34,7 @@ def bootstrap_first_admin(session: Session | None = None) -> User | None:
         admin_pass = settings.admin_password.get_secret_value()
 
         if not admin_email or not admin_pass:
-            print("Error: LEDGERLINE_ADMIN_EMAIL and LEDGERLINE_ADMIN_PASSWORD must be configured.")
+            print("Error: BALANCEVAULT_ADMIN_EMAIL and BALANCEVAULT_ADMIN_PASSWORD must be configured.")
             return None
 
         # Create first administrator

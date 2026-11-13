@@ -4,8 +4,8 @@ from fastapi import status
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from ledgerline.auth import create_access_token, hash_password
-from ledgerline.models import Account, AuditEvent, User, UserRole
+from balancevault.auth import create_access_token, hash_password
+from balancevault.models import Account, AuditEvent, User, UserRole
 
 
 def test_admin_provisions_new_auditor_and_audit_event_recorded(client: TestClient, db_session: Session):

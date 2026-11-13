@@ -4,7 +4,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from ledgerline.config import get_settings
+from balancevault.config import get_settings
 
 
 class Base(DeclarativeBase):

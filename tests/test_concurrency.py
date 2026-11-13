@@ -8,11 +8,11 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-import ledgerline.database as db_mod
-from ledgerline.auth import create_access_token, hash_password
-from ledgerline.database import Base
-from ledgerline.main import app
-from ledgerline.models import Account, User, UserRole
+import balancevault.database as db_mod
+from balancevault.auth import create_access_token, hash_password
+from balancevault.database import Base
+from balancevault.main import app
+from balancevault.models import Account, User, UserRole
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -39,7 +39,7 @@ def setup_test_engine():
 
 
 def test_concurrent_withdrawal_race_condition(setup_test_engine) -> None:
-    from ledgerline.rate_limit import _memory_counters
+    from balancevault.rate_limit import _memory_counters
     _memory_counters.clear()
     session = db_mod.SessionLocal()
     # Create user and account
@@ -95,7 +95,7 @@ def test_concurrent_withdrawal_race_condition(setup_test_engine) -> None:
 
 
 def test_opposing_transfers_no_deadlock(setup_test_engine) -> None:
-    from ledgerline.rate_limit import _memory_counters
+    from balancevault.rate_limit import _memory_counters
     _memory_counters.clear()
     session = db_mod.SessionLocal()
     user_a = User(

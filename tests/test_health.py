@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-from ledgerline.main import app
+from balancevault.main import app
 
 
 def test_health_check_returns_ok() -> None:
@@ -17,7 +17,7 @@ def test_dashboard_and_assets_are_served() -> None:
         script = client.get("/app.js")
 
     assert page.status_code == 200
-    assert "LedgerLine" in page.text
+    assert "BalanceVault" in page.text
     assert script.status_code == 200
     assert "renderAccounts" in script.text
 
@@ -37,4 +37,4 @@ def test_swagger_and_openapi_documentation_served() -> None:
     assert "components" in schema
     assert "securitySchemes" in schema["components"]
     assert "HTTPBearer" in schema["components"]["securitySchemes"]
-    assert schema["info"]["title"] == "LedgerLine API"
+    assert schema["info"]["title"] == "BalanceVault API"

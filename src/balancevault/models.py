@@ -17,7 +17,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
-from ledgerline.database import Base
+from balancevault.database import Base
 
 
 class UserRole(StrEnum):

@@ -1,8 +1,8 @@
 from sqlalchemy import text
 from sqlalchemy.exc import DatabaseError, OperationalError
 
-from ledgerline.models import LedgerEntry
-from ledgerline.services.ledger import verify_ledger_hash_chain
+from balancevault.models import LedgerEntry
+from balancevault.services.ledger import verify_ledger_hash_chain
 
 
 def test_sqlite_and_orm_immutability_enforcement(db_session):

@@ -10,25 +10,25 @@ from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from ledgerline.auth import (
+from balancevault.auth import (
     create_access_token,
     get_current_user,
     hash_password,
     require_roles,
     verify_password,
 )
-from ledgerline.bootstrap import bootstrap_auditor, bootstrap_first_admin
-from ledgerline.config import get_settings
-from ledgerline.database import Base, engine, get_session
-from ledgerline.models import (
+from balancevault.bootstrap import bootstrap_auditor, bootstrap_first_admin
+from balancevault.config import get_settings
+from balancevault.database import Base, engine, get_session
+from balancevault.models import (
     Account,
     AuditEvent,
     LedgerEntry,
     User,
     UserRole,
 )
-from ledgerline.rate_limit import check_redis_connection, rate_limiter
-from ledgerline.services.ledger import (
+from balancevault.rate_limit import check_redis_connection, rate_limiter
+from balancevault.services.ledger import (
     LedgerException,
     execute_deposit,
     execute_transfer,
@@ -52,9 +52,9 @@ async def lifespan(app: FastAPI):
 
 
 SWAGGER_DESCRIPTION = """
-### LedgerLine Financial Integrity Ledger & Money Movement API
+### BalanceVault Financial Integrity Ledger & Money Movement API
 
-Interactive Swagger API Testing Suite for LedgerLine.
+Interactive Swagger API Testing Suite for BalanceVault.
 
 #### Authentication Guide for Swagger:
 1. **Register** a new user with `POST /auth/register` (or sign in with existing credentials via `POST /auth/login`).
@@ -70,7 +70,7 @@ Interactive Swagger API Testing Suite for LedgerLine.
 """
 
 app = FastAPI(
-    title="LedgerLine API",
+    title="BalanceVault API",
     version="1.0.0",
     description=SWAGGER_DESCRIPTION,
     docs_url="/docs",
@@ -283,7 +283,7 @@ def login_user(
 
     # Set secure HttpOnly cookie with SameSite protection against CSRF
     response.set_cookie(
-        key="ledgerline_access_token",
+        key="balancevault_access_token",
         value=token,
         httponly=True,
         samesite="lax",
@@ -308,7 +308,7 @@ def logout_user(response: Response) -> dict[str, str]:
     settings = get_settings()
     is_prod = settings.environment.lower() == "production"
     response.delete_cookie(
-        key="ledgerline_access_token",
+        key="balancevault_access_token",
         path="/",
         httponly=True,
         samesite="lax",

@@ -3,7 +3,7 @@ requires = ["setuptools>=75"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "ledgerline"
+name = "balancevault"
 version = "0.1.0"
 description = "An integrity-first money movement ledger API"
 requires-python = ">=3.13"
@@ -30,7 +30,7 @@ dev = [
 where = ["src"]
 
 [tool.setuptools.package-data]
-ledgerline = ["static/*"]
+balancevault = ["static/*"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

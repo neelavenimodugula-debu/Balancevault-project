@@ -7,8 +7,8 @@ from uuid import UUID, uuid4
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from ledgerline.config import get_settings
-from ledgerline.models import (
+from balancevault.config import get_settings
+from balancevault.models import (
     Account,
     AuditEvent,
     IdempotencyRequest,

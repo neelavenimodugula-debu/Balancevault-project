@@ -4,8 +4,8 @@ from datetime import timedelta
 from fastapi import status
 from fastapi.testclient import TestClient
 
-from ledgerline.auth import create_access_token, hash_password
-from ledgerline.models import User, UserRole
+from balancevault.auth import create_access_token, hash_password
+from balancevault.models import User, UserRole
 
 
 def test_complete_auth_and_rbac_workflow(client: TestClient, db_session):
@@ -76,8 +76,8 @@ def test_complete_auth_and_rbac_workflow(client: TestClient, db_session):
     assert me_resp.json()["email"] == holder_email
     assert me_resp.json()["role"].lower() == "account_holder"
 
-    # Test HttpOnly cookie authentication fallback
-    cookie_resp = client.get("/auth/me", cookies={"ledgerline_access_token": holder_token})
+    # Test HttpOnly cookie authentication
+    cookie_resp = client.get("/auth/me", cookies={"balancevault_access_token": holder_token})
     assert cookie_resp.status_code == status.HTTP_200_OK
     assert cookie_resp.json()["email"] == holder_email
 
